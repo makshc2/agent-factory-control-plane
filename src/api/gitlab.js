@@ -54,3 +54,32 @@ export async function fetchArtifact(project, changeName, fileName) {
     throw error
   }
 }
+
+export async function fetchBranchHead(project) {
+  const http = createGitlabHttp(project)
+  const id = encodeURIComponent(project.repo)
+  try {
+    const { data } = await http.get(`/api/v4/projects/${id}/repository/commits`, {
+      params: {
+        ref_name: project.branch,
+        per_page: 1,
+      },
+    })
+    if (!Array.isArray(data) || data.length === 0) {
+      return null
+    }
+    const item = data[0]
+    return {
+      sha: item.id,
+      message: item.title || String(item.message ?? '').split('\n')[0],
+      author: item.author_name,
+      date: item.authored_date || item.created_at,
+      url: item.web_url,
+    }
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return null
+    }
+    throw error
+  }
+}

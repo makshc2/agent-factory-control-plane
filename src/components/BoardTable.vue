@@ -1,4 +1,6 @@
 <script setup>
+import { formatRelativeTime } from '@/utils/formatRelativeTime'
+
 const DASH = '—'
 
 const props = defineProps({
@@ -16,7 +18,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['edit', 'remove'])
+const emit = defineEmits(['edit', 'remove', 'details'])
 
 function isPlaceholder(row) {
   return row.changeName == null || row.changeName === ''
@@ -36,11 +38,15 @@ function changeLabel(row) {
   return display(row.changeName)
 }
 
-function commandLabel(row) {
-  if (isPlaceholder(row)) {
-    return DASH
+function phaseLabel(row) {
+  return display(row.nextRole)
+}
+
+function commandValue(row) {
+  if (row.nextCommand == null || row.nextCommand === '') {
+    return null
   }
-  return display(row.nextCommand)
+  return row.nextCommand
 }
 
 function tasksLabel(row) {
@@ -60,6 +66,19 @@ function verdictValue(row) {
   return row.verdict || null
 }
 
+function verdictModifier(verdict) {
+  if (verdict === 'APPROVE') {
+    return 'badge-verdict-approve'
+  }
+  if (verdict === 'REQUEST CHANGES') {
+    return 'badge-verdict-changes'
+  }
+  if (verdict === 'REJECT') {
+    return 'badge-verdict-reject'
+  }
+  return ''
+}
+
 function formatTimestamp(value) {
   if (value == null || value === '') {
     return DASH
@@ -71,9 +90,16 @@ function formatTimestamp(value) {
   return date.toLocaleString()
 }
 
+function updatedSource(row) {
+  return props.projectStates?.lastUpdated?.[row.projectId] ?? row.updatedAt
+}
+
 function updatedLabel(row) {
-  const fromState = props.projectStates?.lastUpdated?.[row.projectId]
-  return formatTimestamp(fromState ?? row.updatedAt)
+  return formatRelativeTime(updatedSource(row))
+}
+
+function updatedExact(row) {
+  return formatTimestamp(updatedSource(row))
 }
 
 function isLoading(row) {
@@ -91,6 +117,13 @@ function blockedReason(row) {
   return row.blocked
 }
 
+function isFirstRowOfProject(index) {
+  if (index === 0) {
+    return true
+  }
+  return props.rows[index - 1]?.projectId !== props.rows[index]?.projectId
+}
+
 function onEdit(projectId) {
   emit('edit', projectId)
 }
@@ -98,49 +131,114 @@ function onEdit(projectId) {
 function onRemove(projectId) {
   emit('remove', projectId)
 }
+
+function onDetails(event, projectId) {
+  event.currentTarget.focus()
+  emit('details', projectId)
+}
 </script>
 
 <template>
-  <table class="board-table">
-    <thead>
-      <tr>
-        <th>Проєкт</th>
-        <th>Зміна</th>
-        <th>Наступна команда</th>
-        <th>Задачі (n/m)</th>
-        <th>Вердикт</th>
-        <th>Оновлено</th>
-        <th>Статус</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="(row, index) in rows" :key="`${row.projectId}:${row.changeName ?? 'empty'}:${index}`">
-        <td>
-          {{ display(row.projectLabel) }}
-          <button type="button" @click="onEdit(row.projectId)">
-            Редагувати
-          </button>
-          <button type="button" @click="onRemove(row.projectId)">
-            Видалити
-          </button>
-        </td>
-        <td>{{ changeLabel(row) }}</td>
-        <td>{{ commandLabel(row) }}</td>
-        <td>{{ tasksLabel(row) }}</td>
-        <td>
-          <span v-if="verdictValue(row)" class="badge badge-verdict">{{ verdictValue(row) }}</span>
-          <span v-else>{{ DASH }}</span>
-        </td>
-        <td>{{ updatedLabel(row) }}</td>
-        <td>
-          <span v-if="isLoading(row)">оновлюється…</span>
-          <template v-else>
-            <span v-if="blockedReason(row)" class="badge badge-blocked">{{ blockedReason(row) }}</span>
-            <span v-if="errorMessage(row)" class="badge badge-error">{{ errorMessage(row) }}</span>
-            <span v-if="!blockedReason(row) && !errorMessage(row)">{{ DASH }}</span>
-          </template>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="board-table-wrap">
+    <table class="board-table">
+      <colgroup>
+        <col class="board-table__col-project">
+        <col class="board-table__col-change">
+        <col class="board-table__col-command">
+        <col class="board-table__col-tasks">
+        <col class="board-table__col-verdict">
+        <col class="board-table__col-updated">
+        <col class="board-table__col-status">
+        <col class="board-table__col-actions">
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="board-table__col-project">
+            Проєкт
+          </th>
+          <th class="board-table__col-change">
+            Зміна
+          </th>
+          <th class="board-table__col-command">
+            Фаза
+          </th>
+          <th class="board-table__col-tasks">
+            Задачі
+          </th>
+          <th class="board-table__col-verdict">
+            Вердикт
+          </th>
+          <th class="board-table__col-updated">
+            Оновлено
+          </th>
+          <th class="board-table__col-status">
+            Статус
+          </th>
+          <th class="board-table__col-actions" />
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(row, index) in rows" :key="`${row.projectId}:${row.changeName ?? 'empty'}:${index}`">
+          <td class="board-table__project">
+            <span
+              v-if="isFirstRowOfProject(index)"
+              class="board-table__repo"
+              tabindex="-1"
+              @click="onDetails($event, row.projectId)"
+            >{{ display(row.projectLabel) }}</span>
+          </td>
+          <td :class="{ 'board-table__muted': isPlaceholder(row) }">
+            {{ changeLabel(row) }}
+          </td>
+          <td class="board-table__command" :title="commandValue(row) || undefined">
+            {{ phaseLabel(row) }}
+            <div v-if="commandValue(row)" class="board-table__command-secondary">
+              {{ commandValue(row) }}
+            </div>
+          </td>
+          <td class="board-table__tasks">
+            {{ tasksLabel(row) }}
+            <progress
+              v-if="row.tasksTotal > 0"
+              class="board-detail-progress"
+              :max="row.tasksTotal"
+              :value="row.tasksDone"
+            />
+          </td>
+          <td>
+            <span
+              v-if="verdictValue(row)"
+              class="badge badge-verdict"
+              :class="verdictModifier(verdictValue(row))"
+            >{{ verdictValue(row) }}</span>
+            <span v-else class="board-table__muted">{{ DASH }}</span>
+          </td>
+          <td class="board-table__updated" :title="updatedExact(row)">
+            {{ updatedLabel(row) }}
+          </td>
+          <td class="board-table__status">
+            <span v-if="isLoading(row)" class="board-table__loading">оновлюється…</span>
+            <template v-else>
+              <span v-if="blockedReason(row)" class="badge badge-blocked">{{ blockedReason(row) }}</span>
+              <span v-if="errorMessage(row)" class="badge badge-error">{{ errorMessage(row) }}</span>
+              <span v-if="!blockedReason(row) && !errorMessage(row)" class="badge badge-ok">ok</span>
+            </template>
+          </td>
+          <td class="board-table__actions">
+            <template v-if="isFirstRowOfProject(index)">
+              <button type="button" @click="onDetails($event, row.projectId)">
+                Деталі
+              </button>
+              <button type="button" @click="onEdit(row.projectId)">
+                Редагувати
+              </button>
+              <button type="button" class="board-table__danger" @click="onRemove(row.projectId)">
+                Видалити
+              </button>
+            </template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </template>

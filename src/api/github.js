@@ -54,3 +54,24 @@ export async function fetchArtifact(project, changeName, fileName) {
     throw error
   }
 }
+
+export async function fetchBranchHead(project) {
+  const http = createGithubHttp(project)
+  try {
+    const { data } = await http.get(
+      `/repos/${project.repo}/commits/${encodeURIComponent(project.branch)}`,
+    )
+    return {
+      sha: data.sha,
+      message: String(data.commit?.message ?? '').split(/\r?\n/)[0],
+      author: data.commit?.author?.name,
+      date: data.commit?.author?.date,
+      url: data.html_url,
+    }
+  } catch (error) {
+    if (error.response?.status === 404 || error.response?.status === 409) {
+      return null
+    }
+    throw error
+  }
+}

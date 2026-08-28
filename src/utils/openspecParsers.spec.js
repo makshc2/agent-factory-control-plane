@@ -3,6 +3,11 @@ import {
   parseTasksProgress,
   parseHandoff,
   parseReviewVerdict,
+  parseTaskList,
+  parseProposalExcerpt,
+  parseDecisionsExcerpt,
+  parseReviewExcerpt,
+  parseHandoffDetails,
 } from './openspecParsers.js'
 
 describe('parseTasksProgress', () => {
@@ -90,5 +95,66 @@ describe('parseReviewVerdict', () => {
 
   it('returns null for null input', () => {
     expect(parseReviewVerdict(null)).toBeNull()
+  })
+})
+
+describe('parseTaskList', () => {
+  it('parses checked and unchecked items', () => {
+    const text = ['- [x] first', '- [ ] second'].join('\n')
+
+    expect(parseTaskList(text)).toEqual([
+      { text: 'first', done: true },
+      { text: 'second', done: false },
+    ])
+  })
+
+  it('returns empty array for empty text', () => {
+    expect(parseTaskList('')).toEqual([])
+  })
+
+  it('returns empty array for null', () => {
+    expect(parseTaskList(null)).toEqual([])
+  })
+})
+
+describe('parseProposalExcerpt', () => {
+  it('parses title and truncates why to 500 characters', () => {
+    const whyBody = 'w'.repeat(501)
+    const text = ['# Title', '## Why', whyBody].join('\n')
+
+    const result = parseProposalExcerpt(text)
+
+    expect(result.title).toBe('Title')
+    expect(result.why).toHaveLength(500)
+  })
+
+  it('returns null why when Why heading is missing', () => {
+    expect(parseProposalExcerpt('# Title').why).toBeNull()
+  })
+})
+
+describe('parseDecisionsExcerpt', () => {
+  it('truncates to 500 characters', () => {
+    const body = 'd'.repeat(501)
+    const text = ['# Decisions', body].join('\n')
+
+    expect(parseDecisionsExcerpt(text)).toHaveLength(500)
+  })
+})
+
+describe('parseReviewExcerpt', () => {
+  it('returns null for null input', () => {
+    expect(parseReviewExcerpt(null)).toBeNull()
+  })
+})
+
+describe('parseHandoffDetails', () => {
+  it('parses done and treats blocked none as null', () => {
+    const text = ['Done: research', 'Blocked: none'].join('\n')
+
+    const result = parseHandoffDetails(text)
+
+    expect(result.done).toBe('research')
+    expect(result.blocked).toBeNull()
   })
 })

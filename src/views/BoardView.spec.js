@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { nextTick } from 'vue'
 import { getProviderClient } from '@/api/providers'
 import { useRegistryStore } from '@/stores/registry'
 import BoardView from './BoardView.vue'
@@ -56,6 +57,7 @@ function createClient(overrides = {}) {
   return {
     listChanges: vi.fn().mockResolvedValue(['add-login']),
     fetchArtifact: vi.fn(fetchArtifactFixture),
+    fetchBranchHead: vi.fn().mockResolvedValue(null),
     ...overrides,
   }
 }
@@ -74,15 +76,28 @@ describe('BoardView', () => {
   afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
+    document.body.innerHTML = ''
   })
 
   function mountBoard() {
     wrapper = mount(BoardView, {
+      attachTo: document.body,
       global: {
         plugins: [pinia],
       },
     })
     return wrapper
+  }
+
+  function findButton(label) {
+    const fromWrapper = wrapper.findAll('button').find((button) => button.text() === label)
+    if (fromWrapper) {
+      return fromWrapper
+    }
+    const element = [...document.body.querySelectorAll('button')].find(
+      (button) => button.textContent.trim() === label,
+    )
+    return element ? new DOMWrapper(element) : undefined
   }
 
   it('shows empty registry message', async () => {
@@ -166,5 +181,61 @@ describe('BoardView', () => {
 
     expect(wrapper.find('.board-table').text()).not.toContain('оновлюється…')
     expect(wrapper.find('.board-table').text()).toContain('add-login')
+  })
+
+  it('does not fetch branch head or extra artifacts on poll', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    mountBoard()
+    await flushPromises()
+
+    expect(client.fetchBranchHead).not.toHaveBeenCalled()
+    const artifacts = client.fetchArtifact.mock.calls.map((call) => call[2])
+    expect(artifacts).not.toContain('proposal.md')
+    expect(artifacts).not.toContain('decisions.md')
+    expect(artifacts).not.toContain('design.md')
+  })
+
+  it('fetches extra artifacts when Деталі is clicked and closes the panel', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    mountBoard()
+    await flushPromises()
+
+    await findButton('Деталі').trigger('click')
+    await flushPromises()
+
+    expect(client.fetchBranchHead).toHaveBeenCalled()
+    expect(client.fetchArtifact.mock.calls.some((call) => call[2] === 'proposal.md')).toBe(true)
+    expect(
+      document.body.querySelector('.board-detail-panel')
+      || document.body.querySelector('[role="dialog"]'),
+    ).not.toBeNull()
+
+    await findButton('Закрити').trigger('click')
+    await flushPromises()
+
+    expect(document.body.querySelector('.board-detail-panel')).toBeNull()
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('returns focus to Деталі after closing the panel', async () => {
+    getProviderClient.mockReturnValue(createClient())
+    useRegistryStore().addProject(projectData)
+    mountBoard()
+    await flushPromises()
+
+    const detailsBtn = wrapper.findAll('button').find((b) => b.text() === 'Деталі')
+    const trigger = detailsBtn.element
+    await detailsBtn.trigger('click')
+    await flushPromises()
+    const closeBtn = wrapper.findAll('button').find((b) => b.text() === 'Закрити') ?? findButton('Закрити')
+    await closeBtn.trigger('click')
+    await nextTick()
+    await flushPromises()
+
+    expect(document.activeElement).toBe(trigger)
   })
 })

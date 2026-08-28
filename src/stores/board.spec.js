@@ -42,10 +42,19 @@ function fetchArtifactFixture(_project, _changeName, artifact) {
   return Promise.resolve(null)
 }
 
+const branchHeadFixture = {
+  sha: 'abc1234deadbeef',
+  message: 'fix',
+  author: 'Ada',
+  date: '2026-08-01T00:00:00Z',
+  url: 'https://example.com/commit',
+}
+
 function createClient(overrides = {}) {
   return {
     listChanges: vi.fn().mockResolvedValue(['add-login']),
     fetchArtifact: vi.fn(fetchArtifactFixture),
+    fetchBranchHead: vi.fn().mockResolvedValue(branchHeadFixture),
     ...overrides,
   }
 }
@@ -155,5 +164,95 @@ describe('useBoardStore', () => {
     expect(store.statuses[failProject.id]).toBeUndefined()
     expect(store.loading[okProject.id]).toBe(false)
     expect(store.loading[failProject.id]).toBe(false)
+  })
+
+  it('loadProjectDetails fills branchHead, taskList, and fetches proposal.md', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useBoardStore()
+
+    await store.refreshProject(project)
+    await store.loadProjectDetails(project)
+
+    expect(store.details[project.id].branchHead.sha).toBe('abc1234deadbeef')
+    expect(store.details[project.id].changes['add-login'].taskList).toHaveLength(7)
+    expect(client.fetchArtifact).toHaveBeenCalledWith(project, 'add-login', 'proposal.md')
+  })
+
+  it('treats missing proposal.md as null title without detailsError', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useBoardStore()
+
+    await store.refreshProject(project)
+    await store.loadProjectDetails(project)
+
+    expect(store.details[project.id].changes['add-login'].proposal.title).toBeNull()
+    expect(store.detailsError[project.id]).toBeUndefined()
+  })
+
+  it('sets branchHead to null when fetchBranchHead returns null without detailsError', async () => {
+    const client = createClient({
+      fetchBranchHead: vi.fn().mockResolvedValue(null),
+    })
+    getProviderClient.mockReturnValue(client)
+    const store = useBoardStore()
+
+    await store.refreshProject(project)
+    await store.loadProjectDetails(project)
+
+    expect(store.details[project.id].branchHead).toBeNull()
+    expect(store.detailsError[project.id]).toBeUndefined()
+  })
+
+  it('maps fetchBranchHead 401 to detailsError auth without changing errors', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useBoardStore()
+
+    await store.refreshProject(project)
+    store.errors[project.id] = { code: 'network', message: 'x' }
+    client.fetchBranchHead.mockRejectedValue({ response: { status: 401 } })
+
+    await store.loadProjectDetails(project)
+
+    expect(store.detailsError[project.id].code).toBe('auth')
+    expect(store.errors[project.id]).toEqual({ code: 'network', message: 'x' })
+  })
+
+  it('does not fetch branch head or extra artifacts during refreshProject', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useBoardStore()
+
+    await store.refreshProject(project)
+
+    expect(client.fetchBranchHead).not.toHaveBeenCalled()
+    const artifacts = client.fetchArtifact.mock.calls.map((call) => call[2])
+    expect(artifacts).not.toContain('proposal.md')
+    expect(artifacts).not.toContain('decisions.md')
+    expect(artifacts).not.toContain('design.md')
+  })
+
+  it('sets detailsLoading true while fetchBranchHead is pending and false after completion', async () => {
+    let resolveHead
+    const deferred = new Promise((resolve) => {
+      resolveHead = resolve
+    })
+    const client = createClient({
+      fetchBranchHead: vi.fn(() => deferred),
+    })
+    getProviderClient.mockReturnValue(client)
+    const store = useBoardStore()
+
+    await store.refreshProject(project)
+    const pending = store.loadProjectDetails(project)
+
+    expect(store.detailsLoading[project.id]).toBe(true)
+
+    resolveHead(branchHeadFixture)
+    await pending
+
+    expect(store.detailsLoading[project.id]).toBe(false)
   })
 })
