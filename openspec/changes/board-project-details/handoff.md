@@ -1,39 +1,49 @@
 # Session Handoff
 
 ## Closed role
-Archiver (`/opsx:archive`) — **не виконано**. Гейт `pipeline.archive_after_merge: true` не виконано: робота не закомічена, PR немає, merge в `main` немає, CI для цієї зміни не існує. CLI `archive` **не викликався**. `spec-archiver` не спавнився. `code-reviewer` у цій сесії **не** спавнився (це apply-pre-PR, змішування з archive заборонене).
+Archiver (`/opsx:archive`) — **не виконано**. Landing на `origin/main` є (`7746c26`), але гейт `pipeline.archive_after_merge: true` вимагає ще зеленого CI; статус `agent-verify` для цього SHA **не підтверджено**. CLI `archive` **не викликався**. `spec-archiver` не спавнився. `code-reviewer` у цій сесії **не** спавнився.
 
 ## Change
 - name: board-project-details
-- status: applying (tasks complete; blocked on commit/PR/merge)
+- status: applying (tasks complete; landed on main; blocked on CI)
 - tasks: 16/16
 - review: APPROVE
-- last_role: archiver (refused — merge gate)
+- last_role: archiver (refused — CI unverified)
 
 ## Done
-Conductor: оголошено роль Archiver. `npx agent-orchestrator-kit status` — tasks 16/16, review APPROVE, kit друкує «ready to archive» (це лише tasks+review). `npx agent-orchestrator-kit handoff board-project-details --restore` exit 0; Memory JSON порожній; брифінг з CLI/`handoff.md` повний — `session-handoff` restore не потрібен. Заспавнено isolated [openspec-guide](044f308b-8a6d-4900-b58a-ef6737d6ca21) на archive-readiness.
+Conductor: оголошено роль Archiver. `npx agent-orchestrator-kit status` — tasks 16/16, review APPROVE, kit знову друкує «ready to archive» (це лише tasks+review). `npx agent-orchestrator-kit handoff board-project-details --restore` exit 0; Memory JSON порожній/відсутній; брифінг з CLI/`handoff.md` повний — `session-handoff` restore не потрібен. Memory MCP tools у каталозі цієї Cursor-сесії немає.
 
-Факт git: гілка `main` = `origin/main` @ `9522c22` (`v.1.0`). Немає feature-гілки. Немає PR. Diff `board-project-details` (src + `openspec/changes/board-project-details/`) — unstaged/untracked, не в HEAD. Брудний індекс-залишок від уже заархівованої `add-factory-board` (staged add vs working-tree delete; архів уже в `openspec/changes/archive/2026-08-28-add-factory-board/`). `gh` не встановлений.
+Заспавнено isolated [openspec-guide](f9dc3588-d75f-41e4-af06-bb8df85deed3) на archive-readiness. Conductor звірив git і спробував GitHub Actions API.
 
-Delta-спеки ще не в main: `artifact-ingestion` ADDED, `board-polling` ADDED, `factory-board` ADDED+MODIFIED, `project-detail` ADDED (немає `openspec/specs/project-detail/`). Коли archive дозволений — обов’язково `--sync`.
+Оновлений факт git (попередній handoff зі `9522c22` + uncommitted **застарів**):
+- `main` = `origin/main` = `7746c26` (`v.1.0`, parent `9522c22`, прямий коміт, **не** merge-коміт). Feature-гілки немає.
+- `src/` + `openspec/changes/board-project-details/` **у HEAD** (27 файлів у `7746c26`).
+- PR немає (прямий push у `main`). `spec-verify.yml` (лише `pull_request` + `src/**`) для цього лендінгу не запускався.
+- `agent-verify.yml` мав би стартувати на push `main` — результат **невідомий**.
+- Брудний індекс-залишок `add-factory-board`: 12 файлів staged A vs WT delete; архів уже в `openspec/changes/archive/2026-08-28-add-factory-board/`. Не комітити цей індекс; оператор: `git restore --staged openspec/changes/add-factory-board`.
+- `gh` не встановлений. `GITHUB_TOKEN`/`GH_TOKEN` у середовищі порожні.
+- Локальний GitHub PAT автентифікує `makshc2`, але `GET /repos/makshc2/agent-factory-control-plane` і Actions API → **404** (немає доступу до цього приватного репо). CI не вигадувати.
+
+Delta-спеки ще не в main specs: `artifact-ingestion` ADDED, `board-polling` ADDED, `factory-board` ADDED+MODIFIED, `project-detail` ADDED (немає `openspec/specs/project-detail/`). Коли archive дозволений — обов’язково `--sync`.
 
 Попередній apply (16/16, lint/test/build зелені) лишається чинним; `review.md` / `apply-notes.md` не чіпались.
 
 ## Decisions
-- Archive 2026-08-28 відхилено: `pipeline.archive_after_merge: true`; рядок kit «ready to archive» = лише tasks+review, не merge/CI.
-- Коли archive дозволений після merge+зеленого CI: `npx agent-orchestrator-kit archive board-project-details --sync`. Нова capability `project-detail` плюс ADDED/MODIFIED на наявних main specs. Не `--no-sync`.
-- У сесії `/opsx:archive` не спавнити `code-reviewer` (apply-pre-PR) і не спавнити `spec-archiver`, поки CLI archive не впав з environmental причини.
+- Archive 2026-08-28 (друга спроба) відхилено: зміна вже на `origin/main` як `7746c26`, але CI `agent-verify` для цього SHA не підтверджено; kit «ready to archive» і далі ігнорує merge/CI.
+- Прямий push у `main` замінює вимогу окремого PR/merge-коміта; залишковий гейт — зелений `agent-verify` на `7746c26`. `spec-verify` на цей лендінг не очікувати (workflow лише `pull_request`).
+- Не комітити staged-залишок `openspec/changes/add-factory-board` (AD vs WT delete) — це воскресить уже заархівовану зміну.
+- Локальний GitHub PAT не читає цей приватний репо (API 404) — не вважати це доказом, що CI червоний або зелений.
 
 ## Blocked
-- **Merge gate:** немає коміту зміни, немає PR, `main` без цього diff, CI для зміни не існує.
-- Memory MCP tools у цій Cursor-сесії недоступні (каталог динамічних інструментів без memory); persist CLI upsert абсолютним шляхом — не блокує restore/persist.
-- `gh` відсутній — remote PR/CI не підтверджувались окремо; локальний git однозначний.
+- **CI gate:** статус workflow `agent-verify` для `7746c26` недоступний (`gh` немає, GitHub API репо 404, локальних `artifacts/` немає). Archive CLI заборонений, доки оператор не підтвердить зелений CI.
+- Memory MCP tools у цій Cursor-сесії недоступні; persist CLI upsert абсолютним шляхом — не блокує restore/persist.
+- Брудний індекс `add-factory-board` лишається в working tree (не частина цієї зміни).
 
 ## Next command
 `/opsx:archive board-project-details`
 
 ## Next role
-Archiver — **лише після** commit + PR + merge в `main` + зеленого CI. Якщо гілка ще не містить змердженої зміни — знову відмовити й не викликати `archive` CLI. При дозволеному archive: запитати підтвердження `--sync` (рекомендовано) і виконати `npx agent-orchestrator-kit archive board-project-details --sync`. Зараз оператор поза OpenSpec-фазою: закомітити `board-project-details` (не комітити брудний індекс `add-factory-board` як нове дерево), відкрити PR, дочекатися merge. Опційний `code-reviewer` — окремий крок **перед** PR, не в archive-сесії.
+Archiver — **лише після** підтвердженого зеленого `agent-verify` на `7746c26`. Якщо CI все ще невідомий або червоний — знову відмовити й не викликати `archive` CLI. При дозволеному archive: `npx agent-orchestrator-kit archive board-project-details --sync` (рішення `--sync` уже прийняте; не `--no-sync`). Зараз оператор поза OpenSpec-фазою: відкрити Actions для `7746c26` у GitHub UI; `git restore --staged` на `openspec/changes/add-factory-board`. `code-reviewer` у archive-сесії не спавнити.
 
 ## Attach
 - `openspec/changes/board-project-details/tasks.md`
@@ -42,21 +52,23 @@ Archiver — **лише після** commit + PR + merge в `main` + зелен�
 - `src/views/BoardView.vue`
 - `src/components/ProjectDetailPanel.vue`
 - `src/stores/board.js`
+- `.github/workflows/agent-verify.yml`
 
 ## Subagents to spawn
-- archive — CLI: `npx agent-orchestrator-kit archive board-project-details --sync` (після merge); субагент фази **заборонений**
-- `openspec-guide` — якщо merge/CI неочевидні
+- archive — CLI: `npx agent-orchestrator-kit archive board-project-details --sync` (після зеленого CI); субагент фази **заборонений**
+- `openspec-guide` — якщо CI/landing неочевидні
 - `spec-archiver` — лише fallback, якщо archive CLI недоступний або впав environmental
 - `session-handoff` — лише якщо restore/persist CLI впав
-- `code-reviewer` — **не** спавнити в `/opsx:archive`; опційно перед відкриттям PR в окремому кроці apply
+- `code-reviewer` — **не** спавнити в `/opsx:archive`
 
 ## Constraints
 - language: uk
 - do not mix phases
-- не викликати `archive` CLI, доки PR не змерджено в `main` і CI зелений
+- не викликати `archive` CLI, доки `agent-verify` для `7746c26` не зелений
 - після дозволу: `--sync`, не `--no-sync`
 - `review.md` / `apply-notes.md` не редагувати
 - не чіпати сигнатури `parseTasksProgress` / `parseHandoff` / `parseReviewVerdict`; `listChanges`/`fetchArtifact`; ключ `factory-board.projects.v1`; callback `usePoller` = `refreshAll`
+- не комітити індекс-залишок `add-factory-board`
 
 ## Runtime
 - runtime: local
@@ -88,28 +100,38 @@ Archiver — **лише після** commit + PR + merge в `main` + зелен�
 7. Лише після цього заспавни субагента фази. Free-form «продовжуй» / «далі» при одній активній зміні = `Handoff.next_command`.
 
 ## Повний контекст попередньої сесії (самодостатній — не покладайся лише на Memory)
-- Закрита роль: Archiver (`/opsx:archive`) — **не виконано**. Гейт `pipeline.archive_after_merge: true` не виконано: робота не закомічена, PR немає, merge в `main` немає, CI для цієї зміни не існує. CLI `archive` **не викликався**. `spec-archiver` не спавнився. `code-reviewer` у цій сесії **не** спавнився (це apply-pre-PR, змішування з archive заборонене).
+- Закрита роль: Archiver (`/opsx:archive`) — **не виконано**. Landing на `origin/main` є (`7746c26`), але гейт `pipeline.archive_after_merge: true` вимагає ще зеленого CI; статус `agent-verify` для цього SHA **не підтверджено**. CLI `archive` **не викликався**. `spec-archiver` не спавнився. `code-reviewer` у цій сесії **не** спавнився.
 - Зміна: - name: board-project-details
-- status: applying (tasks complete; blocked on commit/PR/merge)
+- status: applying (tasks complete; landed on main; blocked on CI)
 - tasks: 16/16
 - review: APPROVE
-- last_role: archiver (refused — merge gate)
+- last_role: archiver (refused — CI unverified)
 - Зроблено:
-Conductor: оголошено роль Archiver. `npx agent-orchestrator-kit status` — tasks 16/16, review APPROVE, kit друкує «ready to archive» (це лише tasks+review). `npx agent-orchestrator-kit handoff board-project-details --restore` exit 0; Memory JSON порожній; брифінг з CLI/`handoff.md` повний — `session-handoff` restore не потрібен. Заспавнено isolated [openspec-guide](044f308b-8a6d-4900-b58a-ef6737d6ca21) на archive-readiness.
+Conductor: оголошено роль Archiver. `npx agent-orchestrator-kit status` — tasks 16/16, review APPROVE, kit знову друкує «ready to archive» (це лише tasks+review). `npx agent-orchestrator-kit handoff board-project-details --restore` exit 0; Memory JSON порожній/відсутній; брифінг з CLI/`handoff.md` повний — `session-handoff` restore не потрібен. Memory MCP tools у каталозі цієї Cursor-сесії немає.
 
-Факт git: гілка `main` = `origin/main` @ `9522c22` (`v.1.0`). Немає feature-гілки. Немає PR. Diff `board-project-details` (src + `openspec/changes/board-project-details/`) — unstaged/untracked, не в HEAD. Брудний індекс-залишок від уже заархівованої `add-factory-board` (staged add vs working-tree delete; архів уже в `openspec/changes/archive/2026-08-28-add-factory-board/`). `gh` не встановлений.
+Заспавнено isolated [openspec-guide](f9dc3588-d75f-41e4-af06-bb8df85deed3) на archive-readiness. Conductor звірив git і спробував GitHub Actions API.
 
-Delta-спеки ще не в main: `artifact-ingestion` ADDED, `board-polling` ADDED, `factory-board` ADDED+MODIFIED, `project-detail` ADDED (немає `openspec/specs/project-detail/`). Коли archive дозволений — обов’язково `--sync`.
+Оновлений факт git (попередній handoff зі `9522c22` + uncommitted **застарів**):
+- `main` = `origin/main` = `7746c26` (`v.1.0`, parent `9522c22`, прямий коміт, **не** merge-коміт). Feature-гілки немає.
+- `src/` + `openspec/changes/board-project-details/` **у HEAD** (27 файлів у `7746c26`).
+- PR немає (прямий push у `main`). `spec-verify.yml` (лише `pull_request` + `src/**`) для цього лендінгу не запускався.
+- `agent-verify.yml` мав би стартувати на push `main` — результат **невідомий**.
+- Брудний індекс-залишок `add-factory-board`: 12 файлів staged A vs WT delete; архів уже в `openspec/changes/archive/2026-08-28-add-factory-board/`. Не комітити цей індекс; оператор: `git restore --staged openspec/changes/add-factory-board`.
+- `gh` не встановлений. `GITHUB_TOKEN`/`GH_TOKEN` у середовищі порожні.
+- Локальний GitHub PAT автентифікує `makshc2`, але `GET /repos/makshc2/agent-factory-control-plane` і Actions API → **404** (немає доступу до цього приватного репо). CI не вигадувати.
+
+Delta-спеки ще не в main specs: `artifact-ingestion` ADDED, `board-polling` ADDED, `factory-board` ADDED+MODIFIED, `project-detail` ADDED (немає `openspec/specs/project-detail/`). Коли archive дозволений — обов’язково `--sync`.
 
 Попередній apply (16/16, lint/test/build зелені) лишається чинним; `review.md` / `apply-notes.md` не чіпались.
 - Рішення:
-- Archive 2026-08-28 відхилено: `pipeline.archive_after_merge: true`; рядок kit «ready to archive» = лише tasks+review, не merge/CI.
-- Коли archive дозволений після merge+зеленого CI: `npx agent-orchestrator-kit archive board-project-details --sync`. Нова capability `project-detail` плюс ADDED/MODIFIED на наявних main specs. Не `--no-sync`.
-- У сесії `/opsx:archive` не спавнити `code-reviewer` (apply-pre-PR) і не спавнити `spec-archiver`, поки CLI archive не впав з environmental причини.
+- Archive 2026-08-28 (друга спроба) відхилено: зміна вже на `origin/main` як `7746c26`, але CI `agent-verify` для цього SHA не підтверджено; kit «ready to archive» і далі ігнорує merge/CI.
+- Прямий push у `main` замінює вимогу окремого PR/merge-коміта; залишковий гейт — зелений `agent-verify` на `7746c26`. `spec-verify` на цей лендінг не очікувати (workflow лише `pull_request`).
+- Не комітити staged-залишок `openspec/changes/add-factory-board` (AD vs WT delete) — це воскресить уже заархівовану зміну.
+- Локальний GitHub PAT не читає цей приватний репо (API 404) — не вважати це доказом, що CI червоний або зелений.
 - Блокери:
-- **Merge gate:** немає коміту зміни, немає PR, `main` без цього diff, CI для зміни не існує.
-- Memory MCP tools у цій Cursor-сесії недоступні (каталог динамічних інструментів без memory); persist CLI upsert абсолютним шляхом — не блокує restore/persist.
-- `gh` відсутній — remote PR/CI не підтверджувались окремо; локальний git однозначний.
+- **CI gate:** статус workflow `agent-verify` для `7746c26` недоступний (`gh` немає, GitHub API репо 404, локальних `artifacts/` немає). Archive CLI заборонений, доки оператор не підтвердить зелений CI.
+- Memory MCP tools у цій Cursor-сесії недоступні; persist CLI upsert абсолютним шляхом — не блокує restore/persist.
+- Брудний індекс `add-factory-board` лишається в working tree (не частина цієї зміни).
 - Attach:
 - `openspec/changes/board-project-details/tasks.md`
 - `openspec/changes/board-project-details/apply-notes.md`
@@ -117,19 +139,21 @@ Delta-спеки ще не в main: `artifact-ingestion` ADDED, `board-polling` 
 - `src/views/BoardView.vue`
 - `src/components/ProjectDetailPanel.vue`
 - `src/stores/board.js`
+- `.github/workflows/agent-verify.yml`
 - Субагенти цієї сесії:
-- archive — CLI: `npx agent-orchestrator-kit archive board-project-details --sync` (після merge); субагент фази **заборонений**
-- `openspec-guide` — якщо merge/CI неочевидні
+- archive — CLI: `npx agent-orchestrator-kit archive board-project-details --sync` (після зеленого CI); субагент фази **заборонений**
+- `openspec-guide` — якщо CI/landing неочевидні
 - `spec-archiver` — лише fallback, якщо archive CLI недоступний або впав environmental
 - `session-handoff` — лише якщо restore/persist CLI впав
-- `code-reviewer` — **не** спавнити в `/opsx:archive`; опційно перед відкриттям PR в окремому кроці apply
+- `code-reviewer` — **не** спавнити в `/opsx:archive`
 - Обмеження:
 - language: uk
 - do not mix phases
-- не викликати `archive` CLI, доки PR не змерджено в `main` і CI зелений
+- не викликати `archive` CLI, доки `agent-verify` для `7746c26` не зелений
 - після дозволу: `--sync`, не `--no-sync`
 - `review.md` / `apply-notes.md` не редагувати
 - не чіпати сигнатури `parseTasksProgress` / `parseHandoff` / `parseReviewVerdict`; `listChanges`/`fetchArtifact`; ключ `factory-board.projects.v1`; callback `usePoller` = `refreshAll`
+- не комітити індекс-залишок `add-factory-board`
 - status: spec-approved
 - tasks: 16/16
 - review: APPROVE

@@ -32,3 +32,7 @@
 - 2026-08-28 Archive 2026-08-28 відхилено: `pipeline.archive_after_merge: true`; рядок kit «ready to archive» = лише tasks+review, не merge/CI.
 - 2026-08-28 Коли archive дозволений після merge+зеленого CI: `npx agent-orchestrator-kit archive board-project-details --sync`. Нова capability `project-detail` плюс ADDED/MODIFIED на наявних main specs. Не `--no-sync`.
 - 2026-08-28 У сесії `/opsx:archive` не спавнити `code-reviewer` (apply-pre-PR) і не спавнити `spec-archiver`, поки CLI archive не впав з environmental причини.
+- 2026-08-28 Archive 2026-08-28 (друга спроба) відхилено: зміна вже на `origin/main` як `7746c26`, але CI `agent-verify` для цього SHA не підтверджено; kit «ready to archive» і далі ігнорує merge/CI.
+- 2026-08-28 Прямий push у `main` замінює вимогу окремого PR/merge-коміта; залишковий гейт — зелений `agent-verify` на `7746c26`. `spec-verify` на цей лендінг не очікувати (workflow лише `pull_request`).
+- 2026-08-28 Не комітити staged-залишок `openspec/changes/add-factory-board` (AD vs WT delete) — це воскресить уже заархівовану зміну.
+- 2026-08-28 Локальний GitHub PAT не читає цей приватний репо (API 404) — не вважати це доказом, що CI червоний або зелений.
