@@ -1,0 +1,34 @@
+schema: spec-driven
+
+context: |
+  Language: uk
+  All artifacts must be written in uk.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  Stack: Vue 3 (Composition API, <script setup>), Pinia, Vue Router, Axios, Vite, JavaScript (no TypeScript).
+  Code: production-ready, no Options API, no comments.
+  Domain: multi-project Agentic Factory board for agent-orchestrator-kit consumers.
+  Ingest: pull OpenSpec artifacts (openspec/changes, handoff.md, tasks.md, review.md) from GitHub and GitLab APIs.
+  This product is a separate GitHub repo, not part of the kit npm package.
+  v1 is a single-operator board (registry of remotes + poller + Vue table). Non-goals: Docker sandbox, Temporal/LangGraph, multi-tenant RBAC, token accounting, Hydra SSO unless the operator set becomes a team.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

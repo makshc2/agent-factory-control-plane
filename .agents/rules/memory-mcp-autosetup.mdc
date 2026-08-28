@@ -1,0 +1,12 @@
+---
+description: Memory MCP auto-setup for Cursor and Amp
+alwaysApply: true
+---
+
+# Memory MCP
+
+If `.mcp.json` / `.amp/settings.json` lacks `memory`, or `MEMORY_FILE_PATH` is relative: run `npx agent-orchestrator-kit memory-setup`. Relative paths resolve inside npx `dist/` and look like “memory ignored”.
+
+Use `node scripts/memory-mcp-launcher.cjs` (no relative `MEMORY_FILE_PATH`). Shared file: `.cursor/memory.json` (gitignored). Do not delete other MCP servers.
+
+Entities: `Change:<name>` (status, tasks n/m, last_role, review) · `Handoff:<name>` (next_role, next_command, session_count, summary, blocked) · `Decision:<topic>` (chosen, reason) — mirror of git-tracked `openspec/changes/<name>/decisions.md` (file → Memory only; never Memory → file). Writer: `npx agent-orchestrator-kit handoff <name>` (same command appends `decisions.md`). Notify once: “Memory MCP connected.”
