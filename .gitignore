@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+*.log
+.idea/
+.cursor/
+.cursor/memory.json
+.amp/settings.json
+.env
+.env.*
+!.env.example
+dist/
