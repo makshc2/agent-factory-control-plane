@@ -55,6 +55,9 @@ function createClient(overrides = {}) {
     listChanges: vi.fn().mockResolvedValue(['add-login']),
     fetchArtifact: vi.fn(fetchArtifactFixture),
     fetchBranchHead: vi.fn().mockResolvedValue(branchHeadFixture),
+    listArchivedChanges: vi.fn().mockResolvedValue([]),
+    listCommitsByPath: vi.fn().mockResolvedValue([]),
+    listFolderEntries: vi.fn().mockResolvedValue({ files: [], dirs: [] }),
     ...overrides,
   }
 }
@@ -228,10 +231,14 @@ describe('useBoardStore', () => {
     await store.refreshProject(project)
 
     expect(client.fetchBranchHead).not.toHaveBeenCalled()
+    expect(client.listArchivedChanges).not.toHaveBeenCalled()
+    expect(client.listCommitsByPath).not.toHaveBeenCalled()
+    expect(client.listFolderEntries).not.toHaveBeenCalled()
     const artifacts = client.fetchArtifact.mock.calls.map((call) => call[2])
     expect(artifacts).not.toContain('proposal.md')
     expect(artifacts).not.toContain('decisions.md')
     expect(artifacts).not.toContain('design.md')
+    expect(artifacts).not.toContain('metrics.json')
   })
 
   it('sets detailsLoading true while fetchBranchHead is pending and false after completion', async () => {

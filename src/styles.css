@@ -72,6 +72,26 @@ body {
   background: #f1f5f9;
 }
 
+.board-toolbar a {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #0f172a;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.board-toolbar a:hover {
+  background: #f1f5f9;
+}
+
 .board-toolbar button:first-child,
 .project-form button[type='submit'] {
   background: #1d4ed8;
@@ -212,6 +232,94 @@ body {
 
 .board-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.analysis-table {
+  width: 100%;
+  min-width: 64rem;
+  border-collapse: collapse;
+}
+
+.analysis-table th,
+.analysis-table td {
+  padding: 0.75rem 0.875rem;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.analysis-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.analysis-details-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  z-index: 41;
+  background: #fff;
+  padding: 1.25rem 1.5rem 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 16px 40px rgb(15 23 42 / 0.2);
+}
+
+.analysis-details-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.analysis-details-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.analysis-details-subtitle {
+  margin: 0.35rem 0 1rem;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.analysis-details-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.analysis-details-table th,
+.analysis-details-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.analysis-details-table thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.analysis-details-table tbody th {
+  width: 42%;
+  font-weight: 600;
+  color: #334155;
 }
 
 .board-table__col-project {
@@ -463,4 +571,17 @@ body {
   background: #fee2e2;
   color: #991b1b;
   border-radius: 0.375rem;
+}
+
+.analysis-banner-error {
+  padding: 0.75rem 1rem;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 0.375rem;
+}
+
+.analysis-project-title {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.875rem;
 }

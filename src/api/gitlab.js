@@ -1,4 +1,5 @@
 import { createHttp } from '@/api/http'
+import { parseArchiveFolderName } from '@/utils/changeMetrics'
 
 function createGitlabHttp(project) {
   const base = project.baseUrl || import.meta.env.VITE_GITLAB_BASE_URL || 'https://gitlab.com'
@@ -79,6 +80,106 @@ export async function fetchBranchHead(project) {
   } catch (error) {
     if (error.response?.status === 404) {
       return null
+    }
+    throw error
+  }
+}
+
+export async function listArchivedChanges(project) {
+  const http = createGitlabHttp(project)
+  const id = encodeURIComponent(project.repo)
+  try {
+    const { data } = await http.get(`/api/v4/projects/${id}/repository/tree`, {
+      params: {
+        path: 'openspec/changes/archive',
+        ref: project.branch,
+        per_page: 100,
+      },
+    })
+    return data
+      .filter((item) => item.type === 'tree')
+      .map((item) => ({ folder: item.name, ...parseArchiveFolderName(item.name) }))
+  } catch (error) {
+    if (error.response?.status !== 404) {
+      throw error
+    }
+    try {
+      await http.get(`/api/v4/projects/${id}/repository/branches/${encodeURIComponent(project.branch)}`)
+      return []
+    } catch (checkError) {
+      if (checkError.response?.status === 404) {
+        throw error
+      }
+      throw checkError
+    }
+  }
+}
+
+export async function fetchArchivedArtifact(project, archiveFolder, fileName) {
+  const http = createGitlabHttp(project)
+  const id = encodeURIComponent(project.repo)
+  const filePath = encodeURIComponent(`openspec/changes/archive/${archiveFolder}/${fileName}`)
+  try {
+    const { data } = await http.get(`/api/v4/projects/${id}/repository/files/${filePath}/raw`, {
+      params: { ref: project.branch },
+    })
+    return data
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+export async function listFolderEntries(project, path) {
+  const http = createGitlabHttp(project)
+  const id = encodeURIComponent(project.repo)
+  try {
+    const { data } = await http.get(`/api/v4/projects/${id}/repository/tree`, {
+      params: {
+        path,
+        ref: project.branch,
+        per_page: 100,
+      },
+    })
+    if (!Array.isArray(data)) {
+      return { files: [], dirs: [] }
+    }
+    return {
+      files: data.filter((item) => item.type === 'blob').map((item) => item.name),
+      dirs: data.filter((item) => item.type === 'tree').map((item) => item.name),
+    }
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return { files: [], dirs: [] }
+    }
+    throw error
+  }
+}
+
+export async function listCommitsByPath(project, path) {
+  const http = createGitlabHttp(project)
+  const id = encodeURIComponent(project.repo)
+  try {
+    const { data } = await http.get(`/api/v4/projects/${id}/repository/commits`, {
+      params: {
+        ref_name: project.branch,
+        path,
+        per_page: 100,
+      },
+    })
+    if (!Array.isArray(data)) {
+      return []
+    }
+    return data.map((item) => ({
+      sha: item.id,
+      date: item.authored_date || item.created_at,
+      message: item.title || String(item.message ?? '').split('\n')[0],
+    }))
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return []
     }
     throw error
   }

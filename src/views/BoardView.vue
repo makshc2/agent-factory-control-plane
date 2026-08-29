@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, shallowRef } from 'vue'
+import { useRouter } from 'vue-router'
 import { useRegistryStore } from '@/stores/registry'
 import { useBoardStore } from '@/stores/board'
 import { usePoller } from '@/composables/usePoller'
@@ -7,6 +8,7 @@ import ProjectForm from '@/components/ProjectForm.vue'
 import BoardTable from '@/components/BoardTable.vue'
 import ProjectDetailPanel from '@/components/ProjectDetailPanel.vue'
 
+const router = useRouter()
 const registryStore = useRegistryStore()
 const boardStore = useBoardStore()
 const { start, stop, refresh } = usePoller(() => boardStore.refreshAll(registryStore.projects))
@@ -179,6 +181,13 @@ function onRemove(projectId) {
   registryStore.removeProject(projectId)
 }
 
+function onAnalysis(projectId) {
+  if (!registryStore.projects.some((item) => item.id === projectId)) {
+    return
+  }
+  router.push({ name: 'analysis', params: { projectId } })
+}
+
 function onDetails(projectId) {
   const project = registryStore.projects.find((item) => item.id === projectId)
   if (!project) {
@@ -314,6 +323,7 @@ onUnmounted(() => {
       @edit="onEdit"
       @remove="onRemove"
       @details="onDetails"
+      @analysis="onAnalysis"
     />
     <Teleport
       v-if="selectedProjectId != null && selectedProject"

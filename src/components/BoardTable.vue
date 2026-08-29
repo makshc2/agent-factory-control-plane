@@ -18,7 +18,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['edit', 'remove', 'details'])
+const emit = defineEmits(['edit', 'remove', 'details', 'analysis'])
 
 function isPlaceholder(row) {
   return row.changeName == null || row.changeName === ''
@@ -136,6 +136,10 @@ function onDetails(event, projectId) {
   event.currentTarget.focus()
   emit('details', projectId)
 }
+
+function onAnalysis(projectId) {
+  emit('analysis', projectId)
+}
 </script>
 
 <template>
@@ -226,6 +230,9 @@ function onDetails(event, projectId) {
           </td>
           <td class="board-table__actions">
             <template v-if="isFirstRowOfProject(index)">
+              <button type="button" @click="onAnalysis(row.projectId)">
+                Аналіз
+              </button>
               <button type="button" @click="onDetails($event, row.projectId)">
                 Деталі
               </button>

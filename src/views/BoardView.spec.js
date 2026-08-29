@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { getProviderClient } from '@/api/providers'
 import { useRegistryStore } from '@/stores/registry'
 import BoardView from './BoardView.vue'
@@ -58,6 +59,9 @@ function createClient(overrides = {}) {
     listChanges: vi.fn().mockResolvedValue(['add-login']),
     fetchArtifact: vi.fn(fetchArtifactFixture),
     fetchBranchHead: vi.fn().mockResolvedValue(null),
+    listArchivedChanges: vi.fn().mockResolvedValue([]),
+    listCommitsByPath: vi.fn().mockResolvedValue([]),
+    listFolderEntries: vi.fn().mockResolvedValue({ files: [], dirs: [] }),
     ...overrides,
   }
 }
@@ -79,14 +83,29 @@ describe('BoardView', () => {
     document.body.innerHTML = ''
   })
 
+  function createBoardRouter() {
+    return createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'board', component: { template: '<div />' } },
+        {
+          path: '/analysis/:projectId',
+          name: 'analysis',
+          component: { template: '<div>Аналіз змін</div>' },
+        },
+      ],
+    })
+  }
+
   function mountBoard() {
+    const router = createBoardRouter()
     wrapper = mount(BoardView, {
       attachTo: document.body,
       global: {
-        plugins: [pinia],
+        plugins: [pinia, router],
       },
     })
-    return wrapper
+    return { wrapper, router }
   }
 
   function findButton(label) {
@@ -106,6 +125,7 @@ describe('BoardView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Немає зареєстрованих проєктів.')
+    expect(wrapper.text()).not.toContain('Аналіз')
   })
 
   it('renders a change row with progress and verdict after refresh', async () => {
@@ -119,6 +139,20 @@ describe('BoardView', () => {
     expect(table.text()).toContain('add-login')
     expect(table.text()).toContain('3/7')
     expect(table.text()).toContain('APPROVE')
+    expect(table.text()).toContain('Аналіз')
+  })
+
+  it('navigates to analysis for one project when Аналіз is clicked', async () => {
+    getProviderClient.mockReturnValue(createClient())
+    useRegistryStore().addProject(projectData)
+    const { router } = mountBoard()
+    await flushPromises()
+
+    await findButton('Аналіз').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('analysis')
+    expect(router.currentRoute.value.params.projectId).toBe(useRegistryStore().projects[0].id)
   })
 
   it('shows duplicate message and does not add a second project', async () => {
@@ -191,10 +225,14 @@ describe('BoardView', () => {
     await flushPromises()
 
     expect(client.fetchBranchHead).not.toHaveBeenCalled()
+    expect(client.listArchivedChanges).not.toHaveBeenCalled()
+    expect(client.listCommitsByPath).not.toHaveBeenCalled()
+    expect(client.listFolderEntries).not.toHaveBeenCalled()
     const artifacts = client.fetchArtifact.mock.calls.map((call) => call[2])
     expect(artifacts).not.toContain('proposal.md')
     expect(artifacts).not.toContain('decisions.md')
     expect(artifacts).not.toContain('design.md')
+    expect(artifacts).not.toContain('metrics.json')
   })
 
   it('fetches extra artifacts when Деталі is clicked and closes the panel', async () => {

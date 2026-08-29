@@ -52,6 +52,15 @@ describe('BoardTable', () => {
     expect(badge.text()).toBe('APPROVE')
   })
 
+  it('emits analysis with project id when Аналіз is clicked', async () => {
+    const wrapper = mountTable([makeRow()])
+    const analysisBtn = wrapper.findAll('button').find((button) => button.text() === 'Аналіз')
+
+    await analysisBtn.trigger('click')
+
+    expect(wrapper.emitted('analysis')).toEqual([['proj-1']])
+  })
+
   it('emits details with project id when Деталі is clicked', async () => {
     const wrapper = mountTable([makeRow()])
     const detailsBtn = wrapper.findAll('button').find((button) => button.text() === 'Деталі')
