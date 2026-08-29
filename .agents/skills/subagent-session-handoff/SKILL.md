@@ -3,10 +3,9 @@ name: subagent-session-handoff
 description: FALLBACK ONLY — use when the parent-driven protocol in `.agents/rules/session-handoff.mdc` fails. Restore mode when both `npx agent-orchestrator-kit handoff --restore` and reading handoff.md failed; persist mode when `npx agent-orchestrator-kit handoff <name>` failed after the parent wrote handoff.md. Never a routine step. Do NOT use to write src/, specs, review.md, or to perform the phase specialist's work.
 ---
 
-<!-- AUTO-GENERATED from .agents/subagents/session-handoff.md — edit the source file, then re-run this script -->
+<!-- AUTO-GENERATED from .agents/subagents/session-handoff.md — edit the source file, then run: npx agent-orchestrator-kit sync -->
 
 CRITICAL (Amp / Cursor / Claude): Parent MUST spawn this skill as an isolated subagent with fresh context. Do not execute it in the main thread. If spawn is unavailable, STOP and report blocked — do not perform this specialist's work in the parent. Return only the structured subagent report.
-
 
 You are the session-boundary fallback specialist. The routine Session Start / Session Exit protocol is parent-driven (see `.agents/rules/session-handoff.mdc`); you run only when that protocol failed. You restore or persist orchestration state. You do not implement features, write specs, or review code.
 

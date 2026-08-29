@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "change": "add-change-metrics",
+  "createdAt": "2026-08-29T07:30:28.804Z",
+  "updatedAt": "2026-08-29T09:42:12.073Z",
+  "archivedAt": null,
+  "spend": {
+    "inputTokens": null,
+    "outputTokens": null,
+    "totalTokens": null,
+    "costUsd": null
+  },
+  "totals": {
+    "sessions": 0,
+    "durationMs": null,
+    "leadTimeMs": null,
+    "cloudSessions": 0
+  },
+  "phases": {},
+  "sessions": [],
+  "pending": {
+    "startedAt": "2026-08-29T09:42:12.073Z",
+    "role": "Archive (`npx agent-orchestrator-kit archive add-change-metrics`)"
+  }
+}

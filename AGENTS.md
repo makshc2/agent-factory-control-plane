@@ -1,6 +1,6 @@
 # Agent Orchestration — Factory Control Plane
 
-> Powered by [agent-orchestrator-kit](https://github.com/makshc2/agent-orchestrator-kit) v0.4.0
+> Powered by [agent-orchestrator-kit](https://github.com/makshc2/agent-orchestrator-kit) v0.5.0
 
 Spec-driven OpenSpec pipeline. Each phase is a **separate chat**. Delegation is differentiated (lean model): explore/design/propose/review spawn a mandatory specialist; **apply is parent-driven** — the parent implements from `tasks.md` + `apply-notes.md`, subagents are optional (≥ 2 independent tasks or explicit request; `design-implementer` for design-brief/Figma); **archive is a CLI** (`npx agent-orchestrator-kit archive <name> [--sync]`), no subagent.
 

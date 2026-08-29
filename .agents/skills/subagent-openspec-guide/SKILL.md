@@ -3,10 +3,9 @@ name: subagent-openspec-guide
 description: Read-only OpenSpec pipeline navigator. ALWAYS use for status, gate-failure, archive-readiness, or next-command questions. Do NOT use to execute a phase, edit files, or replace any stage specialist.
 ---
 
-<!-- AUTO-GENERATED from .agents/subagents/openspec-guide.md — edit the source file, then re-run this script -->
+<!-- AUTO-GENERATED from .agents/subagents/openspec-guide.md — edit the source file, then run: npx agent-orchestrator-kit sync -->
 
 CRITICAL (Amp / Cursor / Claude): Parent MUST spawn this skill as an isolated subagent with fresh context. Do not execute it in the main thread. If spawn is unavailable, STOP and report blocked — do not perform this specialist's work in the parent. Return only the structured subagent report.
-
 
 You are a read-only guide for the OpenSpec + agent-orchestrator-kit pipeline (`explore → [design] → propose → review → apply → verify → archive`).
 

@@ -1,9 +1,53 @@
 import { parseHandoff, parseReviewVerdict, parseTasksProgress } from '@/utils/openspecParsers'
 
 const CSV_HEADER =
-  'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents'
+  'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits'
 
 const SPEND_KEYS = ['inputTokens', 'outputTokens', 'totalTokens', 'costUsd']
+const PLATFORM_KEYS = ['cursor', 'claude', 'amp']
+const PHASE_KEYS = ['explore', 'design', 'spec', 'review', 'apply', 'archive', 'other']
+const TOTALS_KEYS = ['sessions', 'durationMs', 'leadTimeMs', 'cloudSessions']
+const PHASE_NUMBER_KEYS = [
+  'sessions',
+  'durationMs',
+  'inputTokens',
+  'outputTokens',
+  'totalTokens',
+  'costUsd',
+]
+const PLATFORM_NUMBER_KEYS = [
+  'inputTokens',
+  'outputTokens',
+  'totalTokens',
+  'costUsd',
+  'ampCredits',
+]
+const SESSION_STRING_KEYS = [
+  'startedAt',
+  'endedAt',
+  'role',
+  'phase',
+  'runtime',
+  'agentId',
+  'model',
+  'platform',
+  'tasks',
+]
+const SESSION_NUMBER_KEYS = ['durationMs', 'inputTokens', 'outputTokens', 'totalTokens', 'costUsd']
+const MODEL_SPEND_KEYS = [
+  'inputTokens',
+  'outputTokens',
+  'totalTokens',
+  'costUsd',
+  'ampCredits',
+]
+const SOURCE_NUMBER_KEYS = [
+  'inputTokens',
+  'outputTokens',
+  'totalTokens',
+  'costUsd',
+  'ampCredits',
+]
 
 function emptySpan() {
   return {
@@ -15,14 +59,59 @@ function emptySpan() {
   }
 }
 
-function emptySpend() {
+function emptyPlatformSpend() {
   return {
     inputTokens: null,
     outputTokens: null,
     totalTokens: null,
     costUsd: null,
-    source: 'unknown',
+    ampCredits: null,
+    source: 'none',
   }
+}
+
+function emptyJournal() {
+  return {
+    source: 'unknown',
+    version: null,
+    change: null,
+    createdAt: null,
+    updatedAt: null,
+    archivedAt: null,
+    spend: {
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      costUsd: null,
+    },
+    spendByPlatform: {
+      cursor: emptyPlatformSpend(),
+      claude: emptyPlatformSpend(),
+      amp: emptyPlatformSpend(),
+    },
+    spendByModel: [],
+    totals: {
+      sessions: null,
+      durationMs: null,
+      leadTimeMs: null,
+      cloudSessions: null,
+    },
+    phases: {},
+    sessions: [],
+    pending: null,
+  }
+}
+
+function isPlainObject(value) {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function finiteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function nonEmptyString(value) {
+  return typeof value === 'string' && value !== '' ? value : null
 }
 
 function durationMsFrom(startedAt, endedAt) {
@@ -176,6 +265,295 @@ function csvBool(value) {
   return value ? 'true' : 'false'
 }
 
+function parseSpendFields(raw) {
+  const result = {
+    inputTokens: null,
+    outputTokens: null,
+    totalTokens: null,
+    costUsd: null,
+  }
+  if (!isPlainObject(raw)) {
+    return result
+  }
+  for (const key of SPEND_KEYS) {
+    result[key] = finiteNumber(raw[key])
+  }
+  return result
+}
+
+function parsePlatformSpend(raw) {
+  const result = emptyPlatformSpend()
+  if (!isPlainObject(raw)) {
+    return result
+  }
+  for (const key of PLATFORM_NUMBER_KEYS) {
+    result[key] = finiteNumber(raw[key])
+  }
+  result.source = nonEmptyString(raw.source) ?? 'none'
+  return result
+}
+
+function parseSpendByPlatform(raw) {
+  const result = {
+    cursor: emptyPlatformSpend(),
+    claude: emptyPlatformSpend(),
+    amp: emptyPlatformSpend(),
+  }
+  if (!isPlainObject(raw)) {
+    return result
+  }
+  for (const key of PLATFORM_KEYS) {
+    result[key] = parsePlatformSpend(raw[key])
+  }
+  return result
+}
+
+function parseSpendByModel(raw) {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const result = []
+  for (const item of raw) {
+    if (!isPlainObject(item)) {
+      continue
+    }
+    const entry = {
+      model: nonEmptyString(item.model),
+      platform: nonEmptyString(item.platform),
+    }
+    for (const key of MODEL_SPEND_KEYS) {
+      entry[key] = finiteNumber(item[key])
+    }
+    result.push(entry)
+  }
+  return result
+}
+
+function parseTotals(raw) {
+  const result = {
+    sessions: null,
+    durationMs: null,
+    leadTimeMs: null,
+    cloudSessions: null,
+  }
+  if (!isPlainObject(raw)) {
+    return result
+  }
+  for (const key of TOTALS_KEYS) {
+    result[key] = finiteNumber(raw[key])
+  }
+  return result
+}
+
+function parseStringList(raw) {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const result = []
+  for (const item of raw) {
+    if (typeof item === 'string' && item !== '') {
+      result.push(item)
+    }
+  }
+  return result
+}
+
+function parsePhase(raw) {
+  if (!isPlainObject(raw)) {
+    return null
+  }
+  const phase = {
+    agents: parseStringList(raw.agents),
+    models: parseStringList(raw.models),
+  }
+  for (const key of PHASE_NUMBER_KEYS) {
+    phase[key] = finiteNumber(raw[key])
+  }
+  return phase
+}
+
+function parsePhases(raw) {
+  const result = {}
+  if (!isPlainObject(raw)) {
+    return result
+  }
+  for (const key of PHASE_KEYS) {
+    const phase = parsePhase(raw[key])
+    if (phase) {
+      result[key] = phase
+    }
+  }
+  return result
+}
+
+function parseSessionSources(raw) {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const result = []
+  for (const item of raw) {
+    if (!isPlainObject(item)) {
+      continue
+    }
+    const source = {
+      id: nonEmptyString(item.id),
+      platform: nonEmptyString(item.platform),
+      model: nonEmptyString(item.model),
+      at: nonEmptyString(item.at),
+    }
+    for (const key of SOURCE_NUMBER_KEYS) {
+      source[key] = finiteNumber(item[key])
+    }
+    result.push(source)
+  }
+  return result
+}
+
+function parseSession(raw) {
+  if (!isPlainObject(raw)) {
+    return null
+  }
+  const session = {
+    sources: parseSessionSources(raw.sources),
+  }
+  for (const key of SESSION_STRING_KEYS) {
+    session[key] = nonEmptyString(raw[key])
+  }
+  for (const key of SESSION_NUMBER_KEYS) {
+    session[key] = finiteNumber(raw[key])
+  }
+  return session
+}
+
+function parseSessions(raw) {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const result = []
+  for (const item of raw) {
+    const session = parseSession(item)
+    if (session) {
+      result.push(session)
+    }
+  }
+  return result
+}
+
+function parsePending(raw) {
+  if (!isPlainObject(raw)) {
+    return null
+  }
+  return {
+    startedAt: nonEmptyString(raw.startedAt),
+    role: nonEmptyString(raw.role),
+  }
+}
+
+function pushUnique(list, value) {
+  if (typeof value === 'string' && value !== '' && !list.includes(value)) {
+    list.push(value)
+  }
+}
+
+function phaseHasAgentsOrModels(phases) {
+  for (const key of PHASE_KEYS) {
+    const phase = phases[key]
+    if (!phase) {
+      continue
+    }
+    if ((phase.agents?.length ?? 0) > 0 || (phase.models?.length ?? 0) > 0) {
+      return true
+    }
+  }
+  return false
+}
+
+function platformHasSignal(platform) {
+  if (!platform) {
+    return false
+  }
+  if (platform.source !== 'none') {
+    return true
+  }
+  return PLATFORM_NUMBER_KEYS.some((key) => Number.isFinite(platform[key]))
+}
+
+function buildKitTimes(journal) {
+  const phases = journal.phases ?? {}
+  const phaseDurations = {}
+  for (const key of PHASE_KEYS) {
+    phaseDurations[key] = phases[key]?.durationMs ?? null
+  }
+  return {
+    source: journal.source === 'metrics-file' ? 'kit-sessions' : 'unknown',
+    workMs: journal.totals.durationMs,
+    leadMs: journal.totals.leadTimeMs,
+    phases: phaseDurations,
+  }
+}
+
+function buildAgents(journal, handoffAgents) {
+  const hasJournalAgents =
+    journal.source === 'metrics-file' &&
+    (journal.sessions.length > 0 || phaseHasAgentsOrModels(journal.phases))
+  if (!hasJournalAgents) {
+    return {
+      ...handoffAgents,
+      models: [],
+      platforms: [],
+    }
+  }
+  const roles = []
+  for (const session of journal.sessions) {
+    pushUnique(roles, session.role)
+  }
+  for (const key of PHASE_KEYS) {
+    for (const agent of journal.phases[key]?.agents ?? []) {
+      pushUnique(roles, agent)
+    }
+  }
+  const blockedModels = new Set([...roles, ...(handoffAgents.roles ?? [])])
+  const models = []
+  for (const session of journal.sessions) {
+    if (session.model && !blockedModels.has(session.model)) {
+      pushUnique(models, session.model)
+    }
+  }
+  for (const key of PHASE_KEYS) {
+    for (const model of journal.phases[key]?.models ?? []) {
+      if (model && !blockedModels.has(model)) {
+        pushUnique(models, model)
+      }
+    }
+  }
+  let runtime = null
+  for (const session of journal.sessions) {
+    if (session.runtime) {
+      runtime = session.runtime
+      break
+    }
+  }
+  if (!runtime) {
+    runtime = handoffAgents.runtime
+  }
+  const platforms = []
+  for (const session of journal.sessions) {
+    pushUnique(platforms, session.platform)
+  }
+  for (const key of PLATFORM_KEYS) {
+    if (platformHasSignal(journal.spendByPlatform[key])) {
+      pushUnique(platforms, key)
+    }
+  }
+  return {
+    runtime,
+    roles,
+    subagents: handoffAgents.subagents,
+    models,
+    platforms,
+  }
+}
+
 export function parseArchiveFolderName(folder) {
   const match = String(folder ?? '').match(/^(\d{4}-\d{2}-\d{2})-(.+)$/)
   if (!match) {
@@ -235,36 +613,56 @@ export function mergeSpans(spans) {
   }
 }
 
-export function parseMetricsFile(text) {
-  if (text == null || text === '' || typeof text !== 'string') {
-    return emptySpend()
+export function parseKitMetrics(text) {
+  if (typeof text !== 'string' || text === '') {
+    return emptyJournal()
   }
   let parsed
   try {
     parsed = JSON.parse(text)
   } catch {
-    return emptySpend()
+    return emptyJournal()
   }
-  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return emptySpend()
+  if (!isPlainObject(parsed)) {
+    return emptyJournal()
   }
-  const spend = parsed.spend
-  if (spend == null || typeof spend !== 'object' || Array.isArray(spend)) {
-    return emptySpend()
+  return {
+    source: 'metrics-file',
+    version: finiteNumber(parsed.version),
+    change: nonEmptyString(parsed.change),
+    createdAt: nonEmptyString(parsed.createdAt),
+    updatedAt: nonEmptyString(parsed.updatedAt),
+    archivedAt: nonEmptyString(parsed.archivedAt),
+    spend: parseSpendFields(parsed.spend),
+    spendByPlatform: parseSpendByPlatform(parsed.spendByPlatform),
+    spendByModel: parseSpendByModel(parsed.spendByModel),
+    totals: parseTotals(parsed.totals),
+    phases: parsePhases(parsed.phases),
+    sessions: parseSessions(parsed.sessions),
+    pending: parsePending(parsed.pending),
   }
-  const result = emptySpend()
-  let hasNumber = false
-  for (const key of SPEND_KEYS) {
-    const value = spend[key]
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      result[key] = value
-      hasNumber = true
-    }
+}
+
+export function parseMetricsFile(text) {
+  const journal = parseKitMetrics(text)
+  const result = {
+    inputTokens: journal.spend.inputTokens,
+    outputTokens: journal.spend.outputTokens,
+    totalTokens: journal.spend.totalTokens,
+    costUsd: journal.spend.costUsd,
+    source: 'unknown',
   }
-  if (hasNumber) {
+  if (SPEND_KEYS.some((key) => Number.isFinite(result[key]))) {
     result.source = 'metrics-file'
   }
   return result
+}
+
+export function preferDuration(kitMs, span) {
+  if (Number.isFinite(kitMs)) {
+    return { durationMs: kitMs, source: 'kit-sessions' }
+  }
+  return { durationMs: span?.durationMs ?? null, source: 'git-commits' }
 }
 
 export function parseReviewLoops(text) {
@@ -332,6 +730,8 @@ export function buildChangeMetrics({
       ...(commitMap.apply ?? []),
     ]),
   )
+  const journal = parseKitMetrics(artifactMap.metrics)
+  const handoffAgents = parseHandoffAgents(artifactMap.handoff)
   return {
     projectId: projectMap.id,
     repo: projectMap.repo,
@@ -346,8 +746,10 @@ export function buildChangeMetrics({
     reviewLoops: parseReviewLoops(artifactMap.review),
     hasAcceptanceCriteria: hasAcceptanceCriteria(artifactMap.proposal),
     decisionsCount: countDecisionLines(artifactMap.decisions),
-    agents: parseHandoffAgents(artifactMap.handoff),
+    agents: buildAgents(journal, handoffAgents),
     spend: parseMetricsFile(artifactMap.metrics),
+    journal,
+    kitTimes: buildKitTimes(journal),
     spans: {
       spec,
       review,
@@ -363,6 +765,9 @@ export function metricsToCsv(rows) {
     const spans = row?.spans ?? {}
     const spend = row?.spend ?? {}
     const agents = row?.agents ?? {}
+    const journal = row?.journal ?? {}
+    const kitTimes = row?.kitTimes ?? {}
+    const ampCredits = journal.spendByPlatform?.amp?.ampCredits
     lines.push(
       [
         csvCell(row?.repo),
@@ -395,6 +800,14 @@ export function metricsToCsv(rows) {
         csvCell(agents.runtime),
         csvCell((agents.roles ?? []).join('|')),
         csvCell((agents.subagents ?? []).join('|')),
+        csvCell(journal.totals?.sessions),
+        csvCell(journal.totals?.cloudSessions),
+        csvCell(csvHours(kitTimes.workMs)),
+        csvCell(csvHours(kitTimes.leadMs)),
+        csvCell(journal.pending?.role),
+        csvCell((agents.models ?? []).join('|')),
+        csvCell((agents.platforms ?? []).join('|')),
+        csvCell(Number.isFinite(ampCredits) ? ampCredits : null),
       ].join(','),
     )
   }

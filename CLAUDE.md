@@ -1,6 +1,6 @@
 # Factory Control Plane — Claude Code Context
 
-> agent-orchestrator-kit v0.4.0 | OpenSpec pipeline
+> agent-orchestrator-kit v0.5.0 | OpenSpec pipeline
 
 See `AGENTS.md` and `.agents/rules/` for routing, HARD STOP, and CLI (`npx` only). Config: `.agents/orchestrator.yaml`.
 

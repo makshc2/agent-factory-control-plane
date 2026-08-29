@@ -142,6 +142,42 @@ describe('useAnalysisStore', () => {
 
     const activeRow = store.rows.find((row) => row.changeName === 'add-login')
     expect(activeRow.spend.source).toBe('unknown')
+    expect(activeRow.journal.source).toBe('unknown')
+    expect(activeRow.journal.sessions).toEqual([])
+  })
+
+  it('attaches kit journal from metrics.json without treating null spend as metrics-file', async () => {
+    const journalPayload = {
+      totals: { sessions: 7 },
+      sessions: [{}, {}, {}, {}, {}, {}, {}],
+      spend: {
+        inputTokens: null,
+        outputTokens: null,
+        totalTokens: null,
+        costUsd: null,
+      },
+    }
+    const client = createClient({
+      listFolderEntries: vi.fn().mockResolvedValue({
+        files: ['tasks.md', 'review.md', 'metrics.json'],
+        dirs: [],
+      }),
+      fetchArtifact: vi.fn((_project, _changeName, artifact) => {
+        if (artifact === 'metrics.json') {
+          return Promise.resolve(JSON.stringify(journalPayload))
+        }
+        return fetchArtifactFixture(_project, _changeName, artifact)
+      }),
+    })
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+
+    await expect(store.loadAnalysis([project])).resolves.toBeUndefined()
+
+    const activeRow = store.rows.find((row) => row.changeName === 'add-login')
+    expect(activeRow.journal.source).toBe('metrics-file')
+    expect(activeRow.journal.totals.sessions).toBe(7)
+    expect(activeRow.spend.source).toBe('unknown')
   })
 
   it('sets loading true while listChanges is pending and false after completion', async () => {

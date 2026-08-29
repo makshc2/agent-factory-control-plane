@@ -322,6 +322,26 @@ body {
   color: #334155;
 }
 
+.analysis-pending {
+  font-size: 0.75rem;
+  color: #92400e;
+  margin-left: 0.35rem;
+}
+
+.analysis-journal-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.analysis-journal-table th,
+.analysis-journal-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+}
+
 .board-table__col-project {
   width: 28%;
 }

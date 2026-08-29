@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "change": "consume-kit-metrics",
+  "createdAt": "2026-08-29T10:17:21.742Z",
+  "updatedAt": "2026-08-29T11:01:17.759Z",
+  "archivedAt": null,
+  "spend": {
+    "inputTokens": null,
+    "outputTokens": null,
+    "totalTokens": null,
+    "costUsd": null
+  },
+  "totals": {
+    "sessions": 2,
+    "durationMs": 2288137,
+    "leadTimeMs": 2288137,
+    "cloudSessions": 0
+  },
+  "phases": {
+    "review": {
+      "sessions": 1,
+      "durationMs": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "agents": [
+        "Spec Reviewer — APPROVE, review.md + apply-notes.md записані"
+      ],
+      "models": []
+    },
+    "apply": {
+      "sessions": 1,
+      "durationMs": 2288137,
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "agents": [
+        "Implementer — apply complete, 11/11 tasks, lint/test/build exit 0"
+      ],
+      "models": []
+    }
+  },
+  "sessions": [
+    {
+      "startedAt": null,
+      "endedAt": "2026-08-29T10:17:21.742Z",
+      "durationMs": null,
+      "role": "Spec Reviewer — APPROVE, review.md + apply-notes.md записані",
+      "phase": "review",
+      "runtime": "local",
+      "agentId": "none",
+      "model": null,
+      "tasks": "0/11",
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null
+    },
+    {
+      "startedAt": "2026-08-29T10:23:09.622Z",
+      "endedAt": "2026-08-29T11:01:17.759Z",
+      "durationMs": 2288137,
+      "role": "Implementer — apply complete, 11/11 tasks, lint/test/build exit 0",
+      "phase": "apply",
+      "runtime": "local",
+      "agentId": "none",
+      "model": null,
+      "tasks": "11/11",
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null
+    }
+  ],
+  "pending": null
+}

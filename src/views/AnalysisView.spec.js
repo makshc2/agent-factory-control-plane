@@ -45,6 +45,41 @@ function fetchArtifactFixture(_project, _changeName, artifact) {
   return Promise.resolve(null)
 }
 
+function kitJournal(overrides = {}) {
+  return {
+    version: 1,
+    spend: {
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      costUsd: null,
+    },
+    totals: {
+      sessions: 7,
+      durationMs: 2449985,
+      leadTimeMs: 3151528,
+      cloudSessions: 0,
+    },
+    phases: {
+      spec: {
+        durationMs: 467553,
+      },
+    },
+    sessions: [
+      { role: 'Architect', model: 'cursor-grok-4.6' },
+      { role: 'Architect', model: 'cursor-grok-4.6' },
+      { role: 'Spec Reviewer', model: 'cursor-grok-4.6' },
+      { role: 'Spec Architect', model: 'cursor-grok-4.6' },
+      { role: 'Spec Reviewer', model: 'cursor-grok-4.6' },
+      { role: 'Implementer', model: 'cursor-grok-4.6' },
+      { role: 'Archiver', model: 'cursor-grok-4.6' },
+    ],
+    pending: null,
+    spendByModel: [{ model: 'cursor-grok-4.6' }],
+    ...overrides,
+  }
+}
+
 function createClient(overrides = {}) {
   return {
     listChanges: vi.fn().mockResolvedValue(['add-login']),
@@ -64,6 +99,27 @@ function createClient(overrides = {}) {
     }),
     ...overrides,
   }
+}
+
+function createJournalClient(journalOverrides = {}) {
+  const journal = kitJournal(journalOverrides)
+  return createClient({
+    listFolderEntries: vi.fn().mockResolvedValue({
+      files: ['tasks.md', 'review.md', 'metrics.json'],
+      dirs: [],
+    }),
+    fetchArtifact: vi.fn((_project, _changeName, artifact) => {
+      if (artifact === 'metrics.json') {
+        return Promise.resolve(JSON.stringify(journal))
+      }
+      return fetchArtifactFixture(_project, _changeName, artifact)
+    }),
+  })
+}
+
+function columnText(wrapper, header, rowIndex = 0) {
+  const index = wrapper.findAll('thead th').findIndex((th) => th.text() === header)
+  return wrapper.findAll('tbody tr')[rowIndex].findAll('td')[index].text()
 }
 
 async function createTestRouter(projectId) {
@@ -208,5 +264,44 @@ describe('AnalysisView', () => {
     expect(dialog.textContent).toContain('Джерело витрат')
     expect(dialog.textContent).toContain('27.08.2026, 13:56')
     expect(dialog.textContent).not.toContain('spend.source')
+  })
+
+  it('shows kit journal columns from metrics.json without zero cost', async () => {
+    const client = createJournalClient()
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('Сесії')
+    expect(text).toContain('Lead time')
+    expect(text).toContain('Моделі')
+    expect(text).toContain('7')
+    expect(text).toContain('cursor-grok-4.6')
+    expect(text).not.toContain('$0.00')
+  })
+
+  it('shows pending badge when the journal has an open session', async () => {
+    const client = createJournalClient({
+      pending: { startedAt: '2026-08-29T09:00:00Z', role: 'Implementer' },
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('триває')
+  })
+
+  it('keeps a dash in sessions without metrics.json and hides pending', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(columnText(wrapper, 'Сесії')).toBe('—')
+    expect(wrapper.text()).not.toContain('триває')
   })
 })

@@ -4,7 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import AnalysisDetailsModal from '@/components/AnalysisDetailsModal.vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useRegistryStore } from '@/stores/registry'
-import { metricsToCsv } from '@/utils/changeMetrics'
+import { metricsToCsv, preferDuration } from '@/utils/changeMetrics'
 import { formatDuration, formatKyivDate, formatKyivDateTime } from '@/utils/formatDateTime'
 
 const DASH = '—'
@@ -86,6 +86,29 @@ function spanTitle(span) {
   const started = formatKyivDateTime(span?.startedAt) ?? DASH
   const ended = formatKyivDateTime(span?.endedAt) ?? DASH
   return `${started} – ${ended}, комітів: ${span?.commitCount ?? 0}, інтервал комітів файлів, не wall-clock сесії`
+}
+
+function preferredDurationTitle(preferred, span) {
+  if (preferred.source === 'kit-sessions') {
+    return 'час сесій kit (metrics.json), не інтервал комітів'
+  }
+  return spanTitle(span)
+}
+
+function sessionsLabel(row) {
+  const sessions = row.journal?.totals?.sessions
+  if (sessions == null) {
+    return DASH
+  }
+  return sessions
+}
+
+function modelsLabel(row) {
+  const models = row.agents?.models ?? []
+  if (models.length === 0) {
+    return DASH
+  }
+  return models.join(' · ')
 }
 
 function tokensLabel(row) {
@@ -227,9 +250,12 @@ watch(
             <th>Рев’ю</th>
             <th>Apply</th>
             <th>Усього</th>
+            <th>Сесії</th>
+            <th>Lead time</th>
             <th>Токени</th>
             <th>Вартість</th>
             <th>Агенти</th>
+            <th>Моделі</th>
             <th>Деталі</th>
           </tr>
         </thead>
@@ -239,26 +265,35 @@ watch(
             :key="rowKey(row)"
           >
             <td>{{ row.repo }}</td>
-            <td>{{ row.changeName }}</td>
+            <td>
+              {{ row.changeName }}
+              <span
+                v-if="row.journal?.pending != null"
+                class="analysis-pending"
+              >триває</span>
+            </td>
             <td>{{ archiveLabel(row) }}</td>
             <td>{{ row.verdict ?? DASH }}</td>
             <td>{{ `${row.tasksDone}/${row.tasksTotal}` }}</td>
             <td>{{ row.reviewLoops }}</td>
-            <td :title="spanTitle(row.spans?.spec)">
-              {{ durationLabel(row.spans?.spec?.durationMs) }}
+            <td :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.spec, row.spans?.spec), row.spans?.spec)">
+              {{ durationLabel(preferDuration(row.kitTimes?.phases?.spec, row.spans?.spec).durationMs) }}
             </td>
-            <td :title="spanTitle(row.spans?.review)">
-              {{ durationLabel(row.spans?.review?.durationMs) }}
+            <td :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.review, row.spans?.review), row.spans?.review)">
+              {{ durationLabel(preferDuration(row.kitTimes?.phases?.review, row.spans?.review).durationMs) }}
             </td>
-            <td :title="spanTitle(row.spans?.apply)">
-              {{ durationLabel(row.spans?.apply?.durationMs) }}
+            <td :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.apply, row.spans?.apply), row.spans?.apply)">
+              {{ durationLabel(preferDuration(row.kitTimes?.phases?.apply, row.spans?.apply).durationMs) }}
             </td>
-            <td :title="spanTitle(row.spans?.change)">
-              {{ durationLabel(row.spans?.change?.durationMs) }}
+            <td :title="preferredDurationTitle(preferDuration(row.kitTimes?.workMs, row.spans?.change), row.spans?.change)">
+              {{ durationLabel(preferDuration(row.kitTimes?.workMs, row.spans?.change).durationMs) }}
             </td>
+            <td>{{ sessionsLabel(row) }}</td>
+            <td>{{ durationLabel(row.kitTimes?.leadMs) }}</td>
             <td>{{ tokensLabel(row) }}</td>
             <td>{{ costLabel(row) }}</td>
             <td>{{ agentsLabel(row) }}</td>
+            <td>{{ modelsLabel(row) }}</td>
             <td>
               <button
                 type="button"

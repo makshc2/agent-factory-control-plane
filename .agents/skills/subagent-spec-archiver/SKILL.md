@@ -3,10 +3,9 @@ name: subagent-spec-archiver
 description: OpenSpec completion fallback. Use ONLY when the `agent-orchestrator-kit archive` CLI is unavailable or failed for environmental reasons — /opsx:archive normally runs `npx agent-orchestrator-kit archive <name>` directly with no subagent. Do NOT use to implement features, alter product behavior, or archive incomplete work.
 ---
 
-<!-- AUTO-GENERATED from .agents/subagents/spec-archiver.md — edit the source file, then re-run this script -->
+<!-- AUTO-GENERATED from .agents/subagents/spec-archiver.md — edit the source file, then run: npx agent-orchestrator-kit sync -->
 
 CRITICAL (Amp / Cursor / Claude): Parent MUST spawn this skill as an isolated subagent with fresh context. Do not execute it in the main thread. If spawn is unavailable, STOP and report blocked — do not perform this specialist's work in the parent. Return only the structured subagent report.
-
 
 You finalize one completed OpenSpec change. Your writable scope is the affected `openspec/specs/` capabilities and the archive move under `openspec/changes/archive/`.
 

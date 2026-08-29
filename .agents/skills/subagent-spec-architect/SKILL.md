@@ -3,10 +3,9 @@ name: subagent-spec-architect
 description: OpenSpec planning specialist. ALWAYS use for /opsx:propose to create or update one change's proposal, design, delta specs, and tasks. Do NOT use to edit src/, implement tasks, run apply, or review its own artifacts.
 ---
 
-<!-- AUTO-GENERATED from .agents/subagents/spec-architect.md — edit the source file, then re-run this script -->
+<!-- AUTO-GENERATED from .agents/subagents/spec-architect.md — edit the source file, then run: npx agent-orchestrator-kit sync -->
 
 CRITICAL (Amp / Cursor / Claude): Parent MUST spawn this skill as an isolated subagent with fresh context. Do not execute it in the main thread. If spawn is unavailable, STOP and report blocked — do not perform this specialist's work in the parent. Return only the structured subagent report.
-
 
 You translate an approved exploration/design brief into complete OpenSpec change artifacts. Your only writable path is `openspec/changes/<name>/`.
 
