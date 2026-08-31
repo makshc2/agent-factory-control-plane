@@ -180,6 +180,46 @@ describe('useAnalysisStore', () => {
     expect(activeRow.spend.source).toBe('unknown')
   })
 
+  it('attaches kit journal when fetchArtifact already decoded metrics.json', async () => {
+    const journalPayload = {
+      totals: { sessions: 5, durationMs: 1427241, leadTimeMs: 1578794 },
+      sessions: [{ role: 'Explorer', platform: 'cursor' }],
+      spend: {
+        inputTokens: 3818279,
+        outputTokens: 38764,
+        totalTokens: 3857043,
+        costUsd: null,
+      },
+      spendByPlatform: {
+        cursor: { totalTokens: 2839940, source: 'cursor-hook' },
+        amp: { totalTokens: 1017103, source: 'amp-thread' },
+      },
+    }
+    const client = createClient({
+      listFolderEntries: vi.fn().mockResolvedValue({
+        files: ['tasks.md', 'review.md', 'metrics.json'],
+        dirs: [],
+      }),
+      fetchArtifact: vi.fn((_project, _changeName, artifact) => {
+        if (artifact === 'metrics.json') {
+          return Promise.resolve(journalPayload)
+        }
+        return fetchArtifactFixture(_project, _changeName, artifact)
+      }),
+    })
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+
+    await expect(store.loadAnalysis([project])).resolves.toBeUndefined()
+
+    const activeRow = store.rows.find((row) => row.changeName === 'add-login')
+    expect(activeRow.journal.source).toBe('metrics-file')
+    expect(activeRow.journal.totals.sessions).toBe(5)
+    expect(activeRow.spend.source).toBe('metrics-file')
+    expect(activeRow.spend.totalTokens).toBe(3857043)
+    expect(activeRow.agents.platforms).toEqual(expect.arrayContaining(['cursor', 'amp']))
+  })
+
   it('sets loading true while listChanges is pending and false after completion', async () => {
     let resolveList
     const deferred = new Promise((resolve) => {

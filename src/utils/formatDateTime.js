@@ -17,15 +17,39 @@ const DATE_FORMAT = new Intl.DateTimeFormat('uk-UA', {
   year: 'numeric',
 })
 
-function toValidDate(value) {
+export function parseFlexibleIso(value) {
   if (value == null || value === '') {
+    return NaN
+  }
+  if (value instanceof Date) {
+    const ms = value.getTime()
+    return Number.isFinite(ms) ? ms : NaN
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value < 1e12 ? value * 1000 : value
+  }
+  if (typeof value !== 'string') {
+    return NaN
+  }
+  let raw = value.trim()
+  if (!raw) {
+    return NaN
+  }
+  raw = raw.replace(/(\.\d{3})\d*\.000Z$/i, '$1Z')
+  raw = raw.replace(/(\.\d{3})\d+Z$/i, '$1Z')
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(raw)) {
+    raw += 'Z'
+  }
+  const ms = Date.parse(raw)
+  return Number.isFinite(ms) ? ms : NaN
+}
+
+function toValidDate(value) {
+  const ms = parseFlexibleIso(value)
+  if (!Number.isFinite(ms)) {
     return null
   }
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return null
-  }
-  return date
+  return new Date(ms)
 }
 
 export function formatKyivDateTime(value) {

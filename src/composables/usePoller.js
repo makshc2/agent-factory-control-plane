@@ -39,7 +39,7 @@ export function usePoller(
   }
 
   function refresh() {
-    void invoke()
+    return invoke()
   }
 
   return { start, stop, refresh, isRunning }

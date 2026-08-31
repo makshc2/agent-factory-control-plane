@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { getProviderClient } from '@/api/providers'
 import { useRegistryStore } from '@/stores/registry'
+import { useToastsStore } from '@/stores/toasts'
 import AnalysisView from './AnalysisView.vue'
 
 vi.mock('@/api/providers', async (importOriginal) => {
@@ -314,5 +315,48 @@ describe('AnalysisView', () => {
 
     expect(columnText(wrapper, 'Сесії')).toBe('—')
     expect(wrapper.text()).not.toContain('триває')
+  })
+
+  it('shows kit journal when metrics.json arrives as a parsed object', async () => {
+    const client = createClient({
+      listFolderEntries: vi.fn().mockResolvedValue({
+        files: ['tasks.md', 'review.md', 'metrics.json'],
+        dirs: [],
+      }),
+      fetchArtifact: vi.fn((_project, _changeName, artifact) => {
+        if (artifact === 'metrics.json') {
+          return Promise.resolve(kitJournal())
+        }
+        return fetchArtifactFixture(_project, _changeName, artifact)
+      }),
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(columnText(wrapper, 'Сесії')).toBe('7')
+    expect(wrapper.text()).toContain('cursor-grok-4.6')
+    expect(useToastsStore().items.some((item) => item.message.includes('Аналіз оновлено'))).toBe(true)
+  })
+
+  it('toasts after CSV export', async () => {
+    const createObjectURL = vi.fn(() => 'blob:test')
+    const revokeObjectURL = vi.fn()
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = revokeObjectURL
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    getProviderClient.mockReturnValue(createJournalClient())
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    const exportButton = wrapper.findAll('button').find((button) => button.text() === 'Експорт CSV')
+    await exportButton.trigger('click')
+
+    expect(useToastsStore().items.some((item) => item.message === 'CSV експортовано')).toBe(true)
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(click).toHaveBeenCalled()
+    click.mockRestore()
   })
 })

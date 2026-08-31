@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createHttp } from './http.js'
+import { artifactGetConfig, createHttp } from './http.js'
 
 function ok(config, data = {}) {
   return {
@@ -73,5 +73,18 @@ describe('createHttp', () => {
       response: { status: 429 },
     })
     expect(calls).toBe(2)
+  })
+})
+
+describe('artifactGetConfig', () => {
+  it('keeps metrics.json body as text instead of a parsed object', async () => {
+    const http = createHttp({ baseURL: 'https://artifact.example' })
+    http.defaults.adapter = async (config) =>
+      ok(config, '{"spend":{"totalTokens":30}}')
+
+    const { data } = await http.get('/metrics.json', artifactGetConfig({ ref: 'main' }))
+
+    expect(data).toBe('{"spend":{"totalTokens":30}}')
+    expect(typeof data).toBe('string')
   })
 })

@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { getProviderClient } from '@/api/providers'
 import { useRegistryStore } from '@/stores/registry'
+import { useToastsStore } from '@/stores/toasts'
 import BoardView from './BoardView.vue'
 
 vi.mock('@/api/providers', async (importOriginal) => {
@@ -275,5 +276,17 @@ describe('BoardView', () => {
     await flushPromises()
 
     expect(document.activeElement).toBe(trigger)
+  })
+
+  it('toasts after a manual refresh', async () => {
+    getProviderClient.mockReturnValue(createClient())
+    useRegistryStore().addProject(projectData)
+    mountBoard()
+    await flushPromises()
+
+    await findButton('Оновити').trigger('click')
+    await flushPromises()
+
+    expect(useToastsStore().items.some((item) => item.message === 'Борд оновлено')).toBe(true)
   })
 })

@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRegistryStore } from '@/stores/registry'
 import { useBoardStore } from '@/stores/board'
+import { useToastsStore } from '@/stores/toasts'
 import { usePoller } from '@/composables/usePoller'
 import ProjectForm from '@/components/ProjectForm.vue'
 import BoardTable from '@/components/BoardTable.vue'
@@ -11,6 +12,7 @@ import ProjectDetailPanel from '@/components/ProjectDetailPanel.vue'
 const router = useRouter()
 const registryStore = useRegistryStore()
 const boardStore = useBoardStore()
+const toasts = useToastsStore()
 const { start, stop, refresh } = usePoller(() => boardStore.refreshAll(registryStore.projects))
 
 const formOpen = shallowRef(false)
@@ -151,20 +153,33 @@ function closeForm() {
   formError.value = ''
 }
 
+async function onManualRefresh() {
+  await refresh()
+  const failed = Object.keys(boardStore.errors).length
+  if (failed > 0) {
+    toasts.error(failed === 1 ? 'Не вдалося оновити 1 проєкт' : `Не вдалося оновити ${failed} проєкти`)
+    return
+  }
+  toasts.success('Борд оновлено')
+}
+
 function onSave(data) {
   if (editingProject.value) {
     registryStore.updateProject(editingProject.value.id, data)
     closeForm()
     refresh()
+    toasts.success('Проєкт оновлено')
     return
   }
   const result = registryStore.addProject(data)
   if (result.ok) {
     closeForm()
     refresh()
+    toasts.success('Проєкт додано')
     return
   }
   formError.value = result.error.message
+  toasts.error(result.error.message)
 }
 
 function onEdit(projectId) {
@@ -179,12 +194,14 @@ function onEdit(projectId) {
 
 function onRemove(projectId) {
   registryStore.removeProject(projectId)
+  toasts.success('Проєкт видалено')
 }
 
 function onAnalysis(projectId) {
   if (!registryStore.projects.some((item) => item.id === projectId)) {
     return
   }
+  toasts.info('Відкрито аналіз змін')
   router.push({ name: 'analysis', params: { projectId } })
 }
 
@@ -195,6 +212,7 @@ function onDetails(projectId) {
   }
   detailsTriggerEl = document.activeElement instanceof HTMLElement ? document.activeElement : null
   selectedProjectId.value = projectId
+  toasts.info('Відкрито деталі проєкту')
   if (!boardStore.details[projectId]) {
     boardStore.loadProjectDetails(project)
   }
@@ -214,11 +232,17 @@ function closePanel() {
   })
 }
 
-function onRefreshDetails() {
+async function onRefreshDetails() {
   if (!selectedProject.value) {
     return
   }
-  boardStore.loadProjectDetails(selectedProject.value)
+  await boardStore.loadProjectDetails(selectedProject.value)
+  const detailsError = boardStore.detailsError[selectedProject.value.id]
+  if (detailsError) {
+    toasts.error(detailsError.message)
+    return
+  }
+  toasts.success('Деталі оновлено')
 }
 
 onMounted(() => {
@@ -235,7 +259,7 @@ onUnmounted(() => {
   <main class="board">
     <h1>Factory board</h1>
     <div class="board-toolbar">
-      <button type="button" @click="refresh">
+      <button type="button" @click="onManualRefresh">
         Оновити
       </button>
       <button type="button" @click="openAddForm">

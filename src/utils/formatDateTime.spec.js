@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDuration, formatKyivDate, formatKyivDateTime } from './formatDateTime.js'
+import { formatDuration, formatKyivDate, formatKyivDateTime, parseFlexibleIso } from './formatDateTime.js'
 
 describe('formatKyivDateTime', () => {
   it('formats an ISO instant in Kyiv time', () => {
@@ -15,11 +15,23 @@ describe('formatKyivDateTime', () => {
     expect(formatKyivDateTime('')).toBeNull()
     expect(formatKyivDateTime('not-a-date')).toBeNull()
   })
+
+  it('formats Amp microsecond+.000Z stamps in Kyiv time', () => {
+    expect(formatKyivDateTime('2026-08-31T07:08:17.563464.000Z')).toBe('31.08.2026, 10:08')
+  })
 })
 
 describe('formatKyivDate', () => {
   it('formats a calendar date without inventing a clock time', () => {
     expect(formatKyivDate('2026-08-27')).toBe('27.08.2026')
+  })
+})
+
+describe('parseFlexibleIso', () => {
+  it('parses Amp microsecond+.000Z stamps', () => {
+    expect(parseFlexibleIso('2026-08-31T07:08:17.563464.000Z')).toBe(
+      Date.parse('2026-08-31T07:08:17.563Z'),
+    )
   })
 })
 

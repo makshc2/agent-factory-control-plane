@@ -1,4 +1,5 @@
 import { parseHandoff, parseReviewVerdict, parseTasksProgress } from '@/utils/openspecParsers'
+import { parseFlexibleIso } from '@/utils/formatDateTime'
 
 const CSV_HEADER =
   'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids'
@@ -121,6 +122,33 @@ function finiteNumber(value) {
 
 function nonEmptyString(value) {
   return typeof value === 'string' && value !== '' ? value : null
+}
+
+function coerceIsoTimestamp(value) {
+  const raw = nonEmptyString(value)
+  if (!raw) {
+    return null
+  }
+  const ms = parseFlexibleIso(raw)
+  if (!Number.isFinite(ms)) {
+    return raw
+  }
+  return new Date(ms).toISOString()
+}
+
+function parseJsonObject(text) {
+  if (isPlainObject(text)) {
+    return text
+  }
+  if (typeof text !== 'string' || text === '') {
+    return null
+  }
+  try {
+    const parsed = JSON.parse(text)
+    return isPlainObject(parsed) ? parsed : null
+  } catch {
+    return null
+  }
 }
 
 function durationMsFrom(startedAt, endedAt) {
@@ -408,7 +436,7 @@ function parseSessionSources(raw) {
       id: nonEmptyString(item.id),
       platform: nonEmptyString(item.platform),
       model: nonEmptyString(item.model),
-      at: nonEmptyString(item.at),
+      at: coerceIsoTimestamp(item.at),
       via: nonEmptyString(item.via),
     }
     for (const key of SOURCE_NUMBER_KEYS) {
@@ -428,7 +456,9 @@ function parseSession(raw) {
     models: parseStringList(raw.models),
   }
   for (const key of SESSION_STRING_KEYS) {
-    session[key] = nonEmptyString(raw[key])
+    session[key] = key === 'startedAt' || key === 'endedAt'
+      ? coerceIsoTimestamp(raw[key])
+      : nonEmptyString(raw[key])
   }
   for (const key of SESSION_NUMBER_KEYS) {
     session[key] = finiteNumber(raw[key])
@@ -458,7 +488,7 @@ function parsePending(raw) {
     return null
   }
   return {
-    startedAt: nonEmptyString(raw.startedAt),
+    startedAt: coerceIsoTimestamp(raw.startedAt),
     role: nonEmptyString(raw.role),
     platform: nonEmptyString(raw.platform),
     threadId: nonEmptyString(raw.threadId),
@@ -715,25 +745,17 @@ export function mergeSpans(spans) {
 }
 
 export function parseKitMetrics(text) {
-  if (typeof text !== 'string' || text === '') {
-    return emptyJournal()
-  }
-  let parsed
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    return emptyJournal()
-  }
-  if (!isPlainObject(parsed)) {
+  const parsed = parseJsonObject(text)
+  if (!parsed) {
     return emptyJournal()
   }
   return {
     source: 'metrics-file',
     version: finiteNumber(parsed.version),
     change: nonEmptyString(parsed.change),
-    createdAt: nonEmptyString(parsed.createdAt),
-    updatedAt: nonEmptyString(parsed.updatedAt),
-    archivedAt: nonEmptyString(parsed.archivedAt),
+    createdAt: coerceIsoTimestamp(parsed.createdAt),
+    updatedAt: coerceIsoTimestamp(parsed.updatedAt),
+    archivedAt: coerceIsoTimestamp(parsed.archivedAt),
     spend: parseSpendFields(parsed.spend),
     spendByPlatform: parseSpendByPlatform(parsed.spendByPlatform),
     spendByModel: parseSpendByModel(parsed.spendByModel),

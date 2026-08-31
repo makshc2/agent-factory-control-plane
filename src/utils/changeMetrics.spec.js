@@ -160,6 +160,46 @@ describe('parseKitMetrics', () => {
     expect(result.spendByModel).toEqual([])
   })
 
+  it('parses an already-decoded JSON object from axios', () => {
+    const result = parseKitMetrics({
+      change: 'unavailable-cameras-role-access',
+      totals: { sessions: 5, durationMs: 1427241, leadTimeMs: 1578794, cloudSessions: 0 },
+      spend: { inputTokens: 3818279, outputTokens: 38764, totalTokens: 3857043, costUsd: null },
+      spendByPlatform: {
+        cursor: { inputTokens: 2807832, totalTokens: 2839940, source: 'cursor-hook' },
+        amp: { inputTokens: 1010447, totalTokens: 1017103, source: 'amp-thread' },
+      },
+      sessions: [{ role: 'Explorer', platform: 'cursor', model: 'cursor-grok-4.6' }],
+    })
+
+    expect(result.source).toBe('metrics-file')
+    expect(result.change).toBe('unavailable-cameras-role-access')
+    expect(result.totals.sessions).toBe(5)
+    expect(result.spend.totalTokens).toBe(3857043)
+    expect(result.spendByPlatform.cursor.source).toBe('cursor-hook')
+    expect(result.sessions).toHaveLength(1)
+  })
+
+  it('canonicalizes Amp microsecond+.000Z timestamps', () => {
+    const result = parseKitMetrics({
+      updatedAt: '2026-08-31T07:08:17.563449.000Z',
+      archivedAt: '2026-08-31T07:08:17.563464.000Z',
+      sessions: [
+        {
+          startedAt: '2026-08-31T07:08:17.563468.000Z',
+          endedAt: '2026-08-31T07:08:17.563471.000Z',
+          role: 'Archiver',
+        },
+      ],
+    })
+
+    expect(result.source).toBe('metrics-file')
+    expect(result.updatedAt).toBe('2026-08-31T07:08:17.563Z')
+    expect(result.archivedAt).toBe('2026-08-31T07:08:17.563Z')
+    expect(result.sessions[0].startedAt).toBe('2026-08-31T07:08:17.563Z')
+    expect(result.sessions[0].endedAt).toBe('2026-08-31T07:08:17.563Z')
+  })
+
   it('keeps ampCredits out of the spend overlay', () => {
     const text =
       '{"spend":{"costUsd":null},"spendByPlatform":{"amp":{"ampCredits":12,"costUsd":null}}}'

@@ -1,4 +1,4 @@
-import { createHttp } from './http'
+import { artifactGetConfig, createHttp } from './http'
 import { parseArchiveFolderName } from '@/utils/changeMetrics'
 
 function createGithubHttp(project, extraHeaders = {}) {
@@ -45,7 +45,7 @@ export async function fetchArtifact(project, changeName, fileName) {
   try {
     const { data } = await http.get(
       `/repos/${project.repo}/contents/openspec/changes/${changeName}/${fileName}`,
-      { params: { ref: project.branch } },
+      artifactGetConfig({ ref: project.branch }),
     )
     return data
   } catch (error) {
@@ -112,7 +112,7 @@ export async function fetchArchivedArtifact(project, archiveFolder, fileName) {
   try {
     const { data } = await http.get(
       `/repos/${project.repo}/contents/openspec/changes/archive/${archiveFolder}/${fileName}`,
-      { params: { ref: project.branch } },
+      artifactGetConfig({ ref: project.branch }),
     )
     return data
   } catch (error) {

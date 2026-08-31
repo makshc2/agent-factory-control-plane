@@ -101,6 +101,29 @@ function attachGuards(instance) {
   return instance
 }
 
+export function artifactGetConfig(params) {
+  return {
+    params,
+    responseType: 'text',
+    transitional: { forcedJSONParsing: false },
+    transformResponse: [
+      (data) => {
+        if (data == null || typeof data === 'string') {
+          return data
+        }
+        if (typeof data === 'object') {
+          try {
+            return JSON.stringify(data)
+          } catch {
+            return null
+          }
+        }
+        return String(data)
+      },
+    ],
+  }
+}
+
 export function createHttp({ baseURL, headers }) {
   return attachGuards(
     axios.create({

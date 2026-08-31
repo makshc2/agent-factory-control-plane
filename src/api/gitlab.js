@@ -1,4 +1,4 @@
-import { createHttp } from '@/api/http'
+import { artifactGetConfig, createHttp } from '@/api/http'
 import { parseArchiveFolderName } from '@/utils/changeMetrics'
 
 function createGitlabHttp(project) {
@@ -44,9 +44,10 @@ export async function fetchArtifact(project, changeName, fileName) {
   const id = encodeURIComponent(project.repo)
   const filePath = encodeURIComponent(`openspec/changes/${changeName}/${fileName}`)
   try {
-    const { data } = await http.get(`/api/v4/projects/${id}/repository/files/${filePath}/raw`, {
-      params: { ref: project.branch },
-    })
+    const { data } = await http.get(
+      `/api/v4/projects/${id}/repository/files/${filePath}/raw`,
+      artifactGetConfig({ ref: project.branch }),
+    )
     return data
   } catch (error) {
     if (error.response?.status === 404) {
@@ -120,9 +121,10 @@ export async function fetchArchivedArtifact(project, archiveFolder, fileName) {
   const id = encodeURIComponent(project.repo)
   const filePath = encodeURIComponent(`openspec/changes/archive/${archiveFolder}/${fileName}`)
   try {
-    const { data } = await http.get(`/api/v4/projects/${id}/repository/files/${filePath}/raw`, {
-      params: { ref: project.branch },
-    })
+    const { data } = await http.get(
+      `/api/v4/projects/${id}/repository/files/${filePath}/raw`,
+      artifactGetConfig({ ref: project.branch }),
+    )
     return data
   } catch (error) {
     if (error.response?.status === 404) {

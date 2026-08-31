@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import AnalysisDetailsModal from '@/components/AnalysisDetailsModal.vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useRegistryStore } from '@/stores/registry'
+import { useToastsStore } from '@/stores/toasts'
 import { metricsToCsv, preferDuration } from '@/utils/changeMetrics'
 import { formatDuration, formatKyivDate, formatKyivDateTime } from '@/utils/formatDateTime'
 
@@ -12,6 +13,7 @@ const DASH = '—'
 const route = useRoute()
 const registryStore = useRegistryStore()
 const analysisStore = useAnalysisStore()
+const toasts = useToastsStore()
 
 const searchQuery = shallowRef('')
 const archiveFilter = shallowRef('')
@@ -44,11 +46,30 @@ const filteredRows = computed(() => {
   })
 })
 
-function loadAnalysis() {
-  if (!project.value) {
-    return Promise.resolve()
+function changesCountLabel(count) {
+  const n = Number(count) || 0
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) {
+    return `${n} зміна`
   }
-  return analysisStore.loadAnalysis([project.value])
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${n} зміни`
+  }
+  return `${n} змін`
+}
+
+async function loadAnalysis() {
+  if (!project.value) {
+    return
+  }
+  await analysisStore.loadAnalysis([project.value])
+  const projectError = analysisStore.error[project.value.id]
+  if (projectError) {
+    toasts.error(projectError.message)
+    return
+  }
+  toasts.success(`Аналіз оновлено: ${changesCountLabel(analysisStore.rows.length)}`)
 }
 
 function exportCsv() {
@@ -61,6 +82,7 @@ function exportCsv() {
   link.download = 'factory-board-analysis.csv'
   link.click()
   URL.revokeObjectURL(url)
+  toasts.success('CSV експортовано')
 }
 
 function rowKey(row) {
@@ -158,6 +180,7 @@ function agentsLabel(row) {
 function openDetails(event, row) {
   detailsTriggerEl = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
   selectedRow.value = row
+  toasts.info(`Деталі метрик: ${row.changeName}`)
 }
 
 function closeDetails() {
