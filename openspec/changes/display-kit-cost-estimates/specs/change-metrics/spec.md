@@ -2,19 +2,25 @@
 
 ### Requirement: Резолюція показаної вартості
 
-Система SHALL резолвити число комірки «Вартість» екрана аналізу та рядка «Вартість» в деталях лише з полів kit `metrics.json`. Billed вартість SHALL бути першим скінченним `costUsd` у такому порядку: `spend.costUsd`, `journal.spend.costUsd`, сума скінченних `journal.spendByPlatform.*.costUsd`, сума скінченних `journal.spendByModel[].costUsd`, сума скінченних `journal.sessions[].costUsd`, сума скінченних `journal.phases.*.costUsd`. Kit-оцінка SHALL бути першим скінченним `costUsdEstimated` у тому самому порядку обходу, читаючи `costUsdEstimated` замість `costUsd`. Якщо billed скінченне — комірка MUST показати `$X.XX` (два знаки) і MUST NOT ставити префікс `≈`. Якщо billed є `null`, а kit-оцінка скінченна — комірка MUST показати `≈ $Y.YY`. Якщо обидва `null` — комірка MUST бути `—` і MUST NOT містити `$0.00`. Система MUST NOT обчислювати долари з токенів локальними ставками. Система MUST NOT брати Amp `ampCredits` як долари і MUST NOT додавати credits у `costUsd` або `costUsdEstimated`. Читання скінченного kit `costUsdEstimated` SHALL вважатися показом поля файлу, не вигадкою борду. Відсутній ключ `costUsdEstimated` у legacy-файлі SHALL бути `null`. Система MUST NOT викликати Amp, Cursor або Claude API, щоб заповнити ці поля.
+Система SHALL резолвити число комірки «Вартість» екрана аналізу та рядка «Вартість» в деталях лише з полів kit `metrics.json`. Billed вартість SHALL бути першим скінченним `costUsd` у такому порядку: `spend.costUsd`, `journal.spend.costUsd`, сума скінченних `journal.spendByPlatform.*.costUsd`, сума скінченних `journal.spendByModel[].costUsd`, сума скінченних `journal.sessions[].costUsd`, сума скінченних `journal.phases.*.costUsd`. Kit-оцінка SHALL бути першим скінченним `costUsdEstimated` у тому самому порядку обходу, читаючи `costUsdEstimated` замість `costUsd`. Якщо billed скінченне — комірка MUST показати `$X.XX` (два знаки) і MUST NOT ставити префікс `≈`. Якщо billed є `null`, а kit-оцінка скінченна — комірка MUST показати `≈ $Y.YY`. Якщо обидва `null` — комірка MUST бути `—` і MUST NOT містити `$0.00`. Система MUST NOT обчислювати долари з токенів локальними ставками. Система MUST NOT брати Amp `ampCredits` як долари і MUST NOT додавати credits у `costUsd` або `costUsdEstimated`. Читання скінченного kit `costUsdEstimated` SHALL вважатися показом поля файлу, не вигадкою борду. Відсутній ключ `costUsdEstimated` у legacy-файлі SHALL бути `null`. Tooltip для `≈` MUST бути рівно `оцінка kit (costUsdEstimated), не рахунок Cursor / Amp / Claude`. Якщо комірка показує billed і `costUsdEstimated` скінченне — tooltip MUST бути рівно `$X.XX billed · ≈ $Y.YY kit` (обидва `toFixed(2)`). Overlay «Вартість» MUST використовувати ті самі правила тексту й tooltip, що й комірка таблиці аналізу. Система MUST NOT викликати Amp, Cursor або Claude API, щоб заповнити ці поля.
 
 #### Scenario: Billed перемагає оцінку
 
 - **WHEN** `spend.costUsd === 1.5` і `spend.costUsdEstimated === 0.42`
 - **THEN** комірка «Вартість» є `$1.50` без префікса `≈`
-- **AND** tooltip комірки містить `$1.50 billed · ≈ $0.42 kit`
+- **AND** tooltip комірки MUST дорівнювати `$1.50 billed · ≈ $0.42 kit`
+
+
+#### Scenario: Overlay вартості повторює tooltip таблиці
+
+- **WHEN** overlay «Вартість» показує billed `1.5` і `costUsdEstimated === 0.42`
+- **THEN** `title` рядка overlay містить `$1.50 billed · ≈ $0.42 kit`
 
 #### Scenario: Лише kit-оцінка
 
 - **WHEN** `spend.costUsd === null`, усі billed `costUsd` у журналі є `null`, і `spend.costUsdEstimated === 0.42`
 - **THEN** комірка «Вартість» є `≈ $0.42`
-- **AND** tooltip містить фразу, що число є оцінкою kit, і MUST NOT містити «рахунок Cursor» як джерело числа, і MUST NOT містити `$3 / 1M` або `$15 / 1M`
+- **AND** tooltip MUST дорівнювати `оцінка kit (costUsdEstimated), не рахунок Cursor / Amp / Claude` і MUST NOT містити `$3 / 1M` або `$15 / 1M`
 
 #### Scenario: Оцінка з платформи Cursor коли overlay null
 
@@ -187,7 +193,7 @@
 
 - **WHEN** рядок має `spend.costUsd === null` і `spend.costUsdEstimated === 0.42`
 - **THEN** колонка «Вартість» таблиці аналізу показує `≈ $0.42`
-- **AND** `title` комірки містить, що це оцінка kit, і MUST NOT містити `$3 / 1M`
+- **AND** `title` комірки MUST дорівнювати `оцінка kit (costUsdEstimated), не рахунок Cursor / Amp / Claude` і MUST NOT містити `$3 / 1M`
 
 #### Scenario: Оцінка в таблиці платформ деталей
 
@@ -228,6 +234,12 @@
 
 - **WHEN** у рядка `spend.costUsdEstimated === null`
 - **THEN** клітинка `cost_usd_estimated` порожня, а не `0` і не `0.00`
+
+
+#### Scenario: CSV оцінки не робить walk журналу
+
+- **WHEN** `spend.costUsdEstimated === null` і `journal.spendByPlatform.cursor.costUsdEstimated === 0.18`
+- **THEN** клітинка `cost_usd_estimated` порожня, а комірка «Вартість» таблиці аналізу є `≈ $0.18`
 
 ### Requirement: Повний журнал kit metrics.json
 

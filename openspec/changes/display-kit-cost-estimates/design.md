@@ -6,8 +6,8 @@
 
 - `src/utils/changeMetrics.js` — `SPEND_KEYS` = `inputTokens|outputTokens|totalTokens|costUsd` (без `costUsdEstimated`); `PLATFORM_NUMBER_KEYS` / `SESSION_NUMBER_KEYS` / `MODEL_SPEND_KEYS` / `SOURCE_NUMBER_KEYS` / `PHASE_NUMBER_KEYS` так само без оцінки; `parseMetricsFile` ставить `source === 'metrics-file'` лише за цими ключами; `recordedCostUsd` обходить billed `costUsd`; `estimateCostFromTokens` множить токени на `USD_PER_MILLION_INPUT=3`, `USD_PER_MILLION_OUTPUT=15`, `USD_PER_MILLION_BLENDED=3.5`; `resolveDisplayedCost` підставляє цю вигадку, коли billed `null`.
 - `src/views/AnalysisView.vue` — `costLabel` / `costTitle`: префікс `≈` і tooltip «оцінка за токенами: $3 / 1M…».
-- `src/components/AnalysisDetailsModal.vue` — overlay «Вартість» через `resolveDisplayedCost`; таблиці платформ/моделей/фаз/сесій/sources через `costLabel(number)` лише з `costUsd`. `ampCredits` уже окрема колонка.
-- `src/views/AnalysisDetailsView.vue` — обгортка маршруту; підписи вартості там не живуть, файл не чіпати.
+- `src/components/AnalysisDetailsModal.vue` — overlay «Вартість» через `resolveDisplayedCost`; таблиці платформ/моделей/фаз/сесій/sources через `costLabel(number)` лише з `costUsd`. `ampCredits` уже окрема колонка. Рядки `detailRows` не мають `title`.
+- `src/views/AnalysisDetailsView.vue` — обгортка маршруту; підписи вартості там не живуть, файл не чіпати (включно з `src/views/AnalysisDetailsView.spec.js`).
 - Архів `openspec/changes/archive/2026-08-29-consume-kit-metrics/` — парсер тоді свідомо дропнув невідомі ключі, зокрема майбутній `costUsdEstimated`.
 
 Стек: Vue 3 `<script setup>`, Pinia, JavaScript, без Options API, без коментарів, без TypeScript, без нових npm.
@@ -23,7 +23,7 @@ Design-brief / Figma: немає.
 - Зберегти billed `costUsd` і додати kit `costUsdEstimated` у модель, overlay і журнал.
 - Комірка аналізу / деталей: billed, інакше `≈` kit, інакше `—`.
 - Прибрати локальну таблицю ставок з борду.
-- CSV: стара `cost_usd` + хвіст `cost_usd_estimated`.
+- CSV: стара `cost_usd` + хвіст `cost_usd_estimated` з overlay (без walk журналу).
 - Amp credits лишаються окремою колонкою.
 
 **Non-Goals:**
@@ -45,9 +45,9 @@ Design-brief / Figma: немає.
 | `costUsdEstimated` | Оцінка kit (Cursor API-equivalent / майбутній fallback інших моделей) | лише якщо billed `null`: `≈ $Y.YY` |
 | `ampCredits` | Кредити Amp | ніколи в доларовій комірці; колонка «Amp credits» |
 
-`recordedCostUsd(row)` лишається **лише billed**, той самий обхід: `spend.costUsd` → `journal.spend.costUsd` → сума платформ → моделей → сесій → фаз.
+`recordedCostUsd(row)` лишається **лише billed**, той самий обхід: `spend.costUsd` → `journal.spend.costUsd` → сума платформ → моделей → сесій → фаз. Числовий `0` є значенням.
 
-Новий експорт `recordedEstimatedCostUsd(row)` — той самий обхід, читає `costUsdEstimated`.
+Новий експорт `recordedEstimatedCostUsd(row)` — той самий обхід, читає `costUsdEstimated` замість `costUsd`. Повний billed-обхід виконується **першим**; оцінка читається лише коли billed є `null`.
 
 `resolveDisplayedCost(row)` SHALL повернути `{ costUsd, estimated, estimatedCostUsd }`:
 
@@ -73,9 +73,9 @@ Design-brief / Figma: немає.
 - `SOURCE_NUMBER_KEYS`
 - `PHASE_NUMBER_KEYS`
 
-Правила числа без змін: `typeof === 'number' && Number.isFinite`, рядок `'1'` → `null`.
+Правила числа без змін: `typeof === 'number' && Number.isFinite`, рядок `'1'` → `null`. Відсутній ключ → `null`. Борд MUST показати скінченне значення, щойно ключ є у JSON.
 
-`parseMetricsFile`: overlay MUST містити `costUsdEstimated`. `source === 'metrics-file'`, якщо **будь-яке** з п’яти чисел скінченне (включно з оцінкою). Billed `costUsd` лишається окремим полем і може бути `null`, коли джерело вже `metrics-file` лише через оцінку.
+`parseMetricsFile`: overlay MUST містити `costUsdEstimated` (скопійоване з `journal.spend.costUsdEstimated`). `source === 'metrics-file'`, якщо **будь-яке** з п’яти чисел скінченне (включно з оцінкою). Billed `costUsd` лишається окремим полем і може бути `null`, коли джерело вже `metrics-file` лише через оцінку.
 
 `collectJournalModelRows` MUST копіювати `costUsdEstimated` разом із `costUsd` / токенами / `ampCredits`, інакше таблиця моделей у деталях знову втратить оцінку.
 
@@ -95,13 +95,15 @@ Design-brief / Figma: немає.
 - інакше `title` порожній
 - прибрати рядок «оцінка за токенами: $3 / 1M input, $15 / 1M output»
 
+У модалці overlay: додати поле `title` на об’єкт рядка «Вартість» у `detailRows` і прив’язати `:title="item.title"` на `<td>` значення (інші рядки без `title` лишають порожній атрибут).
+
 Таблиці деталей (платформа / модель / фаза / сесія / source): локальний форматер запису `{ costUsd, costUsdEstimated }`:
 
 - скінченне `costUsd` → `$X.XX`
 - інакше скінченне `costUsdEstimated` → `≈ $Y.YY`
 - інакше `—`
 
-Не викликати row-level walk усередині рядка таблиці журналу.
+Не викликати row-level walk усередині рядка таблиці журналу. Для сесії передавати весь об’єкт сесії (не голе `session.costUsd`); для source — об’єкт source.
 
 `AnalysisDetailsView.vue` не редагувати.
 
