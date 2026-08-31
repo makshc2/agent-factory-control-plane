@@ -25,6 +25,6 @@ describe('formatRelativeTime', () => {
   })
 
   it('parses Amp microsecond stamps for relative time', () => {
-    expect(formatRelativeTime('2026-08-28T11:55:00.123456.000Z', now)).toBe('5 хв тому')
+    expect(formatRelativeTime('2026-08-28T11:55:00.000456.000Z', now)).toBe('5 хв тому')
   })
 })

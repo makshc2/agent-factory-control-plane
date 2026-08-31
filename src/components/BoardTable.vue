@@ -85,21 +85,16 @@ function verdictModifier(verdict) {
   return ''
 }
 
-function formatTimestamp(value) {
-  return formatKyivDateTime(value) ?? DASH
-}
-
 function updatedSource(row) {
   return props.projectStates?.lastUpdated?.[row.projectId] ?? row.updatedAt
 }
 
 function updatedLabel(row) {
-  return formatTimestamp(updatedSource(row))
+  return formatRelativeTime(updatedSource(row))
 }
 
 function updatedExact(row) {
-  const relative = formatRelativeTime(updatedSource(row))
-  return relative === DASH ? '' : relative
+  return formatKyivDateTime(updatedSource(row)) ?? ''
 }
 
 function isLoading(row) {
