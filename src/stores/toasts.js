@@ -26,11 +26,15 @@ export const useToastsStore = defineStore('toasts', () => {
     return push('error', message)
   }
 
+  function warning(message) {
+    return push('warning', message)
+  }
+
   function info(message) {
     return push('info', message)
   }
 
-  return { items, push, success, error, info, dismiss }
+  return { items, push, success, error, warning, info, dismiss }
 })
 
 if (import.meta.hot) {

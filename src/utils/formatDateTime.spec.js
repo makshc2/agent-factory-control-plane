@@ -19,6 +19,10 @@ describe('formatKyivDateTime', () => {
   it('formats Amp microsecond+.000Z stamps in Kyiv time', () => {
     expect(formatKyivDateTime('2026-08-31T07:08:17.563464.000Z')).toBe('31.08.2026, 10:08')
   })
+
+  it('formats leftover Kyiv-offset ISO as the same wall time', () => {
+    expect(formatKyivDateTime('2026-08-31T10:08:17.563+03:00')).toBe('31.08.2026, 10:08')
+  })
 })
 
 describe('formatKyivDate', () => {
@@ -30,6 +34,24 @@ describe('formatKyivDate', () => {
 describe('parseFlexibleIso', () => {
   it('parses Amp microsecond+.000Z stamps', () => {
     expect(parseFlexibleIso('2026-08-31T07:08:17.563464.000Z')).toBe(
+      Date.parse('2026-08-31T07:08:17.563Z'),
+    )
+  })
+
+  it('parses Amp microseconds before Z without the extra .000', () => {
+    expect(parseFlexibleIso('2026-08-31T07:08:17.563464Z')).toBe(
+      Date.parse('2026-08-31T07:08:17.563Z'),
+    )
+  })
+
+  it('parses a space-separated UTC stamp as an instant', () => {
+    expect(parseFlexibleIso('2026-08-31 07:08:17.563Z')).toBe(
+      Date.parse('2026-08-31T07:08:17.563Z'),
+    )
+  })
+
+  it('parses a leftover Kyiv offset as the same instant as UTC', () => {
+    expect(parseFlexibleIso('2026-08-31T10:08:17.563+03:00')).toBe(
       Date.parse('2026-08-31T07:08:17.563Z'),
     )
   })

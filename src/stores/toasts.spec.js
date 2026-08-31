@@ -7,18 +7,18 @@ describe('useToastsStore', () => {
     setActivePinia(createPinia())
   })
 
-  it('pushes success, error and info toasts', () => {
+  it('pushes success, error and warning toasts', () => {
     const store = useToastsStore()
 
     store.success('Борд оновлено')
     store.error('Немає відповіді від сервера')
-    store.info('Відкрито аналіз змін')
+    store.warning('Борд оновлено з помилкою в 1 проєкті')
 
-    expect(store.items.map((item) => item.type)).toEqual(['success', 'error', 'info'])
+    expect(store.items.map((item) => item.type)).toEqual(['success', 'error', 'warning'])
     expect(store.items.map((item) => item.message)).toEqual([
       'Борд оновлено',
       'Немає відповіді від сервера',
-      'Відкрито аналіз змін',
+      'Борд оновлено з помилкою в 1 проєкті',
     ])
   })
 

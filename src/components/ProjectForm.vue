@@ -1,7 +1,6 @@
 <script setup>
 import { shallowRef, watch } from 'vue'
 import { isRepoPath } from '@/utils/repoPath'
-import { useToastsStore } from '@/stores/toasts'
 
 const props = defineProps({
   project: {
@@ -11,7 +10,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['save', 'cancel'])
-const toasts = useToastsStore()
 
 const provider = shallowRef('')
 const repo = shallowRef('')
@@ -56,9 +54,6 @@ function onSubmit() {
   branchError.value = isMissing(nextBranch) ? 'Обовʼязкове поле' : ''
 
   if (isMissing(nextProvider) || isMissing(nextRepo) || isMissing(nextBranch) || !isRepoPath(nextRepo)) {
-    toasts.error(
-      [providerError.value, repoError.value, branchError.value].find((item) => item) || 'Перевірте форму',
-    )
     return
   }
 

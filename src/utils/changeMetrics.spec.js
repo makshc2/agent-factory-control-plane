@@ -6,6 +6,10 @@ import {
   parseMetricsFile,
   preferDuration,
   parseReviewLoops,
+  resolveReviewLoops,
+  resolveDisplayedCost,
+  recordedEstimatedCostUsd,
+  analysisChangeRef,
   hasAcceptanceCriteria,
   countDecisionLines,
   parseHandoffAgents,
@@ -13,6 +17,10 @@ import {
   metricsToCsv,
   collectJournalModels,
   collectJournalModelRows,
+  shortAgentRole,
+  uniqueShortAgentRoles,
+  formatAgentsCell,
+  formatAgentsTitle,
 } from './changeMetrics.js'
 
 const KIT_JOURNAL = {
@@ -22,6 +30,7 @@ const KIT_JOURNAL = {
     outputTokens: null,
     totalTokens: null,
     costUsd: null,
+    costUsdEstimated: null,
   },
   totals: {
     sessions: 7,
@@ -101,6 +110,7 @@ describe('parseMetricsFile', () => {
     outputTokens: null,
     totalTokens: null,
     costUsd: null,
+    costUsdEstimated: null,
     source: 'unknown',
   }
 
@@ -115,6 +125,18 @@ describe('parseMetricsFile', () => {
       outputTokens: null,
       totalTokens: 30,
       costUsd: 1.5,
+      costUsdEstimated: null,
+      source: 'metrics-file',
+    })
+  })
+
+  it('treats finite costUsdEstimated as metrics-file overlay', () => {
+    expect(parseMetricsFile('{"spend":{"costUsdEstimated":0.42}}')).toEqual({
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      costUsd: null,
+      costUsdEstimated: 0.42,
       source: 'metrics-file',
     })
   })
@@ -123,6 +145,13 @@ describe('parseMetricsFile', () => {
     const result = parseMetricsFile('{"spend":{"costUsd":"1"}}')
 
     expect(result.costUsd).toBeNull()
+    expect(result.source).toBe('unknown')
+  })
+
+  it('treats string costUsdEstimated as unknown spend', () => {
+    const result = parseMetricsFile('{"spend":{"costUsdEstimated":"0.42"}}')
+
+    expect(result.costUsdEstimated).toBeNull()
     expect(result.source).toBe('unknown')
   })
 })
@@ -200,6 +229,16 @@ describe('parseKitMetrics', () => {
     expect(result.sessions[0].endedAt).toBe('2026-08-31T07:08:17.563Z')
   })
 
+  it('canonicalizes leftover Europe/Kyiv offset timestamps to UTC', () => {
+    const result = parseKitMetrics({
+      createdAt: '2026-08-31T10:08:17.563+03:00',
+      updatedAt: '2026-08-31T10:08:17.563+03:00',
+    })
+
+    expect(result.createdAt).toBe('2026-08-31T07:08:17.563Z')
+    expect(result.updatedAt).toBe('2026-08-31T07:08:17.563Z')
+  })
+
   it('keeps ampCredits out of the spend overlay', () => {
     const text =
       '{"spend":{"costUsd":null},"spendByPlatform":{"amp":{"ampCredits":12,"costUsd":null}}}'
@@ -209,6 +248,14 @@ describe('parseKitMetrics', () => {
     expect(overlay.costUsd).toBeNull()
     expect(overlay.source).toBe('unknown')
     expect(journal.spendByPlatform.amp.ampCredits).toBe(12)
+  })
+
+  it('keeps cursor costUsdEstimated on the platform bucket', () => {
+    const journal = parseKitMetrics(
+      '{"spendByPlatform":{"cursor":{"costUsdEstimated":0.18,"costUsd":null}}}',
+    )
+
+    expect(journal.spendByPlatform.cursor.costUsdEstimated).toBe(0.18)
   })
 })
 
@@ -235,6 +282,100 @@ describe('parseReviewLoops', () => {
 
   it('counts request-changes variants', () => {
     expect(parseReviewLoops('REQUEST CHANGES\nrequest-changes')).toBe(2)
+  })
+})
+
+describe('resolveReviewLoops', () => {
+  it('counts Spec Reviewer sessions from the kit journal', () => {
+    expect(resolveReviewLoops(KIT_JOURNAL, 'Verdict: APPROVE')).toBe(2)
+  })
+
+  it('falls back to review.md when the journal has no reviewer sessions', () => {
+    expect(resolveReviewLoops({ sessions: [], phases: {} }, 'REQUEST CHANGES')).toBe(1)
+  })
+})
+
+describe('resolveDisplayedCost', () => {
+  it('keeps a recorded cost from spend', () => {
+    expect(resolveDisplayedCost({ spend: { costUsd: 1.5, totalTokens: 30 } })).toEqual({
+      costUsd: 1.5,
+      estimated: false,
+      estimatedCostUsd: null,
+    })
+  })
+
+  it('returns null when tokens exist without billed or kit estimate', () => {
+    expect(
+      resolveDisplayedCost({
+        spend: { inputTokens: 3818279, outputTokens: 38764, totalTokens: 3857043, costUsd: null },
+      }),
+    ).toEqual({
+      costUsd: null,
+      estimated: false,
+      estimatedCostUsd: null,
+    })
+  })
+
+  it('returns null without tokens or recorded cost', () => {
+    expect(resolveDisplayedCost({ spend: { costUsd: null, totalTokens: null } })).toEqual({
+      costUsd: null,
+      estimated: false,
+      estimatedCostUsd: null,
+    })
+  })
+
+  it('prefers billed and keeps kit estimate in estimatedCostUsd', () => {
+    expect(
+      resolveDisplayedCost({
+        spend: { costUsd: 1.5, costUsdEstimated: 0.42 },
+      }),
+    ).toEqual({
+      costUsd: 1.5,
+      estimated: false,
+      estimatedCostUsd: 0.42,
+    })
+  })
+
+  it('shows kit estimate when billed is missing', () => {
+    expect(resolveDisplayedCost({ spend: { costUsdEstimated: 0 } })).toEqual({
+      costUsd: 0,
+      estimated: true,
+      estimatedCostUsd: 0,
+    })
+  })
+})
+
+describe('recordedEstimatedCostUsd', () => {
+  it('walks platform estimates when spend overlay is empty', () => {
+    expect(
+      recordedEstimatedCostUsd({
+        spend: { costUsd: null, costUsdEstimated: null },
+        journal: {
+          spend: { costUsdEstimated: null },
+          spendByPlatform: {
+            cursor: { costUsdEstimated: 0.18 },
+            claude: { costUsdEstimated: null },
+            amp: { costUsdEstimated: null },
+          },
+          spendByModel: [],
+          sessions: [],
+          phases: {},
+        },
+      }),
+    ).toBe(0.18)
+  })
+})
+
+describe('analysisChangeRef', () => {
+  it('prefixes active and archived rows', () => {
+    expect(analysisChangeRef({ archived: false, changeName: 'add-login' })).toBe('c:add-login')
+    expect(
+      analysisChangeRef({
+        archived: true,
+        archiveFolder: '2026-08-28-add-factory-board',
+        changeName: 'add-factory-board',
+      }),
+    ).toBe('a:2026-08-28-add-factory-board')
   })
 })
 
@@ -349,6 +490,7 @@ describe('buildChangeMetrics', () => {
     })
 
     expect(result.journal.source).toBe('metrics-file')
+    expect(result.reviewLoops).toBe(2)
     expect(result.spend.source).toBe('unknown')
     expect(result.kitTimes.source).toBe('kit-sessions')
     expect(result.kitTimes.workMs).toBe(2449985)
@@ -639,12 +781,66 @@ describe('metricsToCsv', () => {
     const pendingRoleIndex = header.split(',').indexOf('pending_role')
 
     const kitTail =
-      ',sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids'
+      ',sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids,cost_usd_estimated'
     expect(header).toContain(kitTail)
     expect(header.endsWith(kitTail)).toBe(true)
     expect(cells[sessionsIndex]).toBe('7')
     expect(cells[specHoursIndex]).toBe('2')
     expect(row.spans.spec.durationMs).toBe(7200000)
     expect(cells[pendingRoleIndex]).toBe('')
+  })
+
+  it('appends billed and estimated cost columns', () => {
+    const csv = metricsToCsv([
+      {
+        repo: 'org/repo',
+        changeName: 'add-x',
+        archived: false,
+        spend: { costUsd: 1.5, costUsdEstimated: 0.42 },
+      },
+    ])
+    const [header, data] = csv.split('\n')
+    const cells = Object.fromEntries(
+      header.split(',').map((key, index) => [key, data.split(',')[index]]),
+    )
+
+    expect(header.endsWith(',cost_usd_estimated')).toBe(true)
+    expect(cells.cost_usd).toBe('1.5')
+    expect(cells.cost_usd_estimated).toBe('0.42')
+  })
+})
+
+describe('shortAgentRole', () => {
+  it('keeps short role names', () => {
+    expect(shortAgentRole('Spec Reviewer')).toBe('Spec Reviewer')
+    expect(shortAgentRole('Implementer')).toBe('Implementer')
+    expect(shortAgentRole('Archiver')).toBe('Archiver')
+  })
+
+  it('strips Closed-role blurbs and parenthetical subagent names', () => {
+    expect(shortAgentRole('Explorer — discovery complete, ready for Architect')).toBe(
+      'Explorer',
+    )
+    expect(
+      shortAgentRole(
+        'Architect (`spec-architect`) — propose complete, artifacts validated, ready for Spec Reviewer',
+      ),
+    ).toBe('Architect')
+  })
+
+  it('dedupes shortened roles for the analysis cell', () => {
+    const roles = [
+      'Explorer — discovery complete, ready for Architect',
+      'Architect (`spec-architect`) — propose complete, artifacts validated, ready for Spec',
+      'Architect',
+    ]
+    expect(uniqueShortAgentRoles(roles)).toEqual(['Explorer', 'Architect'])
+    expect(
+      formatAgentsCell({
+        runtime: 'local',
+        roles,
+      }),
+    ).toBe('local · Explorer · Architect')
+    expect(formatAgentsTitle({ runtime: 'local', roles })).toContain('discovery complete')
   })
 })

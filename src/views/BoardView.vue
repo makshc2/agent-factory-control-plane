@@ -155,7 +155,16 @@ function closeForm() {
 
 async function onManualRefresh() {
   await refresh()
+  const total = registryStore.projects.length
   const failed = Object.keys(boardStore.errors).length
+  if (failed > 0 && failed < total) {
+    toasts.warning(
+      failed === 1
+        ? 'Борд оновлено з помилкою в 1 проєкті'
+        : `Борд оновлено з помилками в ${failed} проєктах`,
+    )
+    return
+  }
   if (failed > 0) {
     toasts.error(failed === 1 ? 'Не вдалося оновити 1 проєкт' : `Не вдалося оновити ${failed} проєкти`)
     return
@@ -168,18 +177,15 @@ function onSave(data) {
     registryStore.updateProject(editingProject.value.id, data)
     closeForm()
     refresh()
-    toasts.success('Проєкт оновлено')
     return
   }
   const result = registryStore.addProject(data)
   if (result.ok) {
     closeForm()
     refresh()
-    toasts.success('Проєкт додано')
     return
   }
   formError.value = result.error.message
-  toasts.error(result.error.message)
 }
 
 function onEdit(projectId) {
@@ -194,14 +200,12 @@ function onEdit(projectId) {
 
 function onRemove(projectId) {
   registryStore.removeProject(projectId)
-  toasts.success('Проєкт видалено')
 }
 
 function onAnalysis(projectId) {
   if (!registryStore.projects.some((item) => item.id === projectId)) {
     return
   }
-  toasts.info('Відкрито аналіз змін')
   router.push({ name: 'analysis', params: { projectId } })
 }
 
@@ -212,7 +216,6 @@ function onDetails(projectId) {
   }
   detailsTriggerEl = document.activeElement instanceof HTMLElement ? document.activeElement : null
   selectedProjectId.value = projectId
-  toasts.info('Відкрито деталі проєкту')
   if (!boardStore.details[projectId]) {
     boardStore.loadProjectDetails(project)
   }

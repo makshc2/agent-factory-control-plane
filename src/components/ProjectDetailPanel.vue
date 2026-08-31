@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { formatKyivDateTime } from '@/utils/formatDateTime'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 
 const EMPTY_FILE = 'немає файлу'
@@ -71,6 +72,10 @@ function fieldText(value) {
 
 function shortSha(sha) {
   return String(sha).slice(0, 7)
+}
+
+function commitDateLabel(value) {
+  return formatKyivDateTime(value) ?? (value == null || value === '' ? '' : String(value))
 }
 
 function tasksNm(change) {
@@ -155,7 +160,7 @@ onUnmounted(() => {
             </p>
             <p>{{ details.branchHead.message }}</p>
             <p>{{ details.branchHead.author }}</p>
-            <p>{{ details.branchHead.date }}</p>
+            <p>{{ commitDateLabel(details.branchHead.date) }}</p>
             <p v-if="details.branchHead.url">
               <a
                 :href="details.branchHead.url"

@@ -35,8 +35,10 @@ export function parseFlexibleIso(value) {
   if (!raw) {
     return NaN
   }
-  raw = raw.replace(/(\.\d{3})\d*\.000Z$/i, '$1Z')
-  raw = raw.replace(/(\.\d{3})\d+Z$/i, '$1Z')
+  raw = raw.replace(/^(\d{4}-\d{2}-\d{2})[ ]+(\d{2}:)/, '$1T$2')
+  raw = raw.replace(/(\.\d{3})\d*\.000(?=Z$|[+-]\d{2}:?\d{2}$)/i, '$1')
+  raw = raw.replace(/(\.\d{3})\d+(?=Z$|[+-]\d{2}:?\d{2}$)/i, '$1')
+  raw = raw.replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(raw)) {
     raw += 'Z'
   }

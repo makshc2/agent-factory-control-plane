@@ -1,10 +1,12 @@
+import { parseFlexibleIso } from './formatDateTime.js'
+
 export function formatRelativeTime(value, now = Date.now()) {
   if (value == null) {
     return '—'
   }
 
-  const ts = new Date(value).getTime()
-  if (Number.isNaN(ts)) {
+  const ts = parseFlexibleIso(value)
+  if (!Number.isFinite(ts)) {
     return '—'
   }
 

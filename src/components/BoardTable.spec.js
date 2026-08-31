@@ -83,4 +83,16 @@ describe('BoardTable', () => {
 
     expect(wrapper.find('span.board-table__repo').attributes('tabindex')).toBe('-1')
   })
+
+  it('shows Kyiv wall time for a UTC updatedAt tooltip', () => {
+    const wrapper = mountTable([makeRow({ updatedAt: '2026-08-31T07:08:17.563Z' })])
+
+    expect(wrapper.find('.board-table__updated').attributes('title')).toBe('31.08.2026, 10:08')
+  })
+
+  it('parses Amp microsecond stamps for the updated tooltip', () => {
+    const wrapper = mountTable([makeRow({ updatedAt: '2026-08-31T07:08:17.563464.000Z' })])
+
+    expect(wrapper.find('.board-table__updated').attributes('title')).toBe('31.08.2026, 10:08')
+  })
 })

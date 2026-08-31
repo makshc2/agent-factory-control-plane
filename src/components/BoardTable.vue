@@ -1,5 +1,7 @@
 <script setup>
+import { formatKyivDateTime } from '@/utils/formatDateTime'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
+import { displayRepoPath } from '@/utils/repoPath'
 
 const DASH = '—'
 
@@ -29,6 +31,10 @@ function display(value) {
     return DASH
   }
   return value
+}
+
+function projectLabel(row) {
+  return displayRepoPath(row.projectLabel) || display(row.projectLabel)
 }
 
 function changeLabel(row) {
@@ -80,14 +86,7 @@ function verdictModifier(verdict) {
 }
 
 function formatTimestamp(value) {
-  if (value == null || value === '') {
-    return DASH
-  }
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return DASH
-  }
-  return date.toLocaleString()
+  return formatKyivDateTime(value) ?? DASH
 }
 
 function updatedSource(row) {
@@ -95,11 +94,12 @@ function updatedSource(row) {
 }
 
 function updatedLabel(row) {
-  return formatRelativeTime(updatedSource(row))
+  return formatTimestamp(updatedSource(row))
 }
 
 function updatedExact(row) {
-  return formatTimestamp(updatedSource(row))
+  const relative = formatRelativeTime(updatedSource(row))
+  return relative === DASH ? '' : relative
 }
 
 function isLoading(row) {
@@ -188,8 +188,9 @@ function onAnalysis(projectId) {
               v-if="isFirstRowOfProject(index)"
               class="board-table__repo"
               tabindex="-1"
+              :title="display(row.projectLabel)"
               @click="onDetails($event, row.projectId)"
-            >{{ display(row.projectLabel) }}</span>
+            >{{ projectLabel(row) }}</span>
           </td>
           <td :class="{ 'board-table__muted': isPlaceholder(row) }">
             {{ changeLabel(row) }}

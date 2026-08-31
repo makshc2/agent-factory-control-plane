@@ -2,9 +2,9 @@ import { parseHandoff, parseReviewVerdict, parseTasksProgress } from '@/utils/op
 import { parseFlexibleIso } from '@/utils/formatDateTime'
 
 const CSV_HEADER =
-  'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids'
+  'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids,cost_usd_estimated'
 
-const SPEND_KEYS = ['inputTokens', 'outputTokens', 'totalTokens', 'costUsd']
+const SPEND_KEYS = ['inputTokens', 'outputTokens', 'totalTokens', 'costUsd', 'costUsdEstimated']
 const PLATFORM_KEYS = ['cursor', 'claude', 'amp']
 const PHASE_KEYS = ['explore', 'design', 'spec', 'review', 'apply', 'archive', 'other']
 const TOTALS_KEYS = ['sessions', 'durationMs', 'leadTimeMs', 'cloudSessions']
@@ -15,6 +15,7 @@ const PHASE_NUMBER_KEYS = [
   'outputTokens',
   'totalTokens',
   'costUsd',
+  'costUsdEstimated',
 ]
 const PLATFORM_NUMBER_KEYS = [
   'inputTokens',
@@ -22,6 +23,7 @@ const PLATFORM_NUMBER_KEYS = [
   'totalTokens',
   'costUsd',
   'ampCredits',
+  'costUsdEstimated',
 ]
 const SESSION_STRING_KEYS = [
   'startedAt',
@@ -43,6 +45,7 @@ const SESSION_NUMBER_KEYS = [
   'totalTokens',
   'costUsd',
   'ampCredits',
+  'costUsdEstimated',
 ]
 const MODEL_SPEND_KEYS = [
   'inputTokens',
@@ -50,6 +53,7 @@ const MODEL_SPEND_KEYS = [
   'totalTokens',
   'costUsd',
   'ampCredits',
+  'costUsdEstimated',
 ]
 const SOURCE_NUMBER_KEYS = [
   'inputTokens',
@@ -57,6 +61,7 @@ const SOURCE_NUMBER_KEYS = [
   'totalTokens',
   'costUsd',
   'ampCredits',
+  'costUsdEstimated',
 ]
 
 function emptySpan() {
@@ -76,6 +81,7 @@ function emptyPlatformSpend() {
     totalTokens: null,
     costUsd: null,
     ampCredits: null,
+    costUsdEstimated: null,
     source: 'none',
   }
 }
@@ -93,6 +99,7 @@ function emptyJournal() {
       outputTokens: null,
       totalTokens: null,
       costUsd: null,
+      costUsdEstimated: null,
     },
     spendByPlatform: {
       cursor: emptyPlatformSpend(),
@@ -155,8 +162,8 @@ function durationMsFrom(startedAt, endedAt) {
   if (startedAt == null || endedAt == null) {
     return null
   }
-  const startedMs = Date.parse(startedAt)
-  const endedMs = Date.parse(endedAt)
+  const startedMs = parseFlexibleIso(startedAt)
+  const endedMs = parseFlexibleIso(endedAt)
   if (!Number.isFinite(startedMs) || !Number.isFinite(endedMs)) {
     return null
   }
@@ -308,6 +315,7 @@ function parseSpendFields(raw) {
     outputTokens: null,
     totalTokens: null,
     costUsd: null,
+    costUsdEstimated: null,
   }
   if (!isPlainObject(raw)) {
     return result
@@ -600,6 +608,7 @@ export function collectJournalModelRows(journal, blockedNames = []) {
       outputTokens: item.outputTokens ?? null,
       totalTokens: item.totalTokens ?? null,
       costUsd: item.costUsd ?? null,
+      costUsdEstimated: item.costUsdEstimated ?? null,
       ampCredits: item.ampCredits ?? null,
     })
   }
@@ -773,6 +782,7 @@ export function parseMetricsFile(text) {
     outputTokens: journal.spend.outputTokens,
     totalTokens: journal.spend.totalTokens,
     costUsd: journal.spend.costUsd,
+    costUsdEstimated: journal.spend.costUsdEstimated,
     source: 'unknown',
   }
   if (SPEND_KEYS.some((key) => Number.isFinite(result[key]))) {
@@ -793,6 +803,94 @@ export function parseReviewLoops(text) {
     return 0
   }
   return (String(text).match(/request[ _-]?changes/gi) || []).length
+}
+
+function isSpecReviewerRole(role) {
+  return shortAgentRole(role).toLowerCase() === 'spec reviewer'
+}
+
+export function countJournalReviewLoops(journal) {
+  let fromSessions = 0
+  for (const session of journal?.sessions ?? []) {
+    const phase = String(session?.phase ?? '').trim().toLowerCase()
+    if (phase === 'review' || isSpecReviewerRole(session?.role)) {
+      fromSessions += 1
+    }
+  }
+  const fromPhase = finiteNumber(journal?.phases?.review?.sessions)
+  return Math.max(fromSessions, fromPhase ?? 0)
+}
+
+export function resolveReviewLoops(journal, reviewText) {
+  return Math.max(countJournalReviewLoops(journal), parseReviewLoops(reviewText))
+}
+
+function sumFiniteCosts(values) {
+  let sum = 0
+  let found = false
+  for (const value of values) {
+    if (Number.isFinite(value)) {
+      sum += value
+      found = true
+    }
+  }
+  return found ? sum : null
+}
+
+function recordedSpendField(row, field) {
+  const top = row?.spend?.[field]
+  if (Number.isFinite(top)) {
+    return top
+  }
+  const journal = row?.journal
+  if (!journal) {
+    return null
+  }
+  if (Number.isFinite(journal.spend?.[field])) {
+    return journal.spend[field]
+  }
+  const fromPlatforms = sumFiniteCosts(
+    PLATFORM_KEYS.map((key) => journal.spendByPlatform?.[key]?.[field]),
+  )
+  if (fromPlatforms != null) {
+    return fromPlatforms
+  }
+  const fromModels = sumFiniteCosts((journal.spendByModel ?? []).map((item) => item[field]))
+  if (fromModels != null) {
+    return fromModels
+  }
+  const fromSessions = sumFiniteCosts((journal.sessions ?? []).map((item) => item[field]))
+  if (fromSessions != null) {
+    return fromSessions
+  }
+  return sumFiniteCosts(PHASE_KEYS.map((key) => journal.phases?.[key]?.[field]))
+}
+
+export function recordedCostUsd(row) {
+  return recordedSpendField(row, 'costUsd')
+}
+
+export function recordedEstimatedCostUsd(row) {
+  return recordedSpendField(row, 'costUsdEstimated')
+}
+
+export function resolveDisplayedCost(row) {
+  const billed = recordedCostUsd(row)
+  const estimatedCostUsd = recordedEstimatedCostUsd(row)
+  if (billed != null) {
+    return { costUsd: billed, estimated: false, estimatedCostUsd }
+  }
+  if (estimatedCostUsd != null) {
+    return { costUsd: estimatedCostUsd, estimated: true, estimatedCostUsd }
+  }
+  return { costUsd: null, estimated: false, estimatedCostUsd: null }
+}
+
+export function analysisChangeRef(row) {
+  if (row?.archived) {
+    return `a:${row.archiveFolder ?? row.changeName}`
+  }
+  return `c:${row.changeName}`
 }
 
 export function hasAcceptanceCriteria(text) {
@@ -866,7 +964,7 @@ export function buildChangeMetrics({
     verdict: parseReviewVerdict(artifactMap.review),
     tasksDone: tasks.done,
     tasksTotal: tasks.total,
-    reviewLoops: parseReviewLoops(artifactMap.review),
+    reviewLoops: resolveReviewLoops(journal, artifactMap.review),
     hasAcceptanceCriteria: hasAcceptanceCriteria(artifactMap.proposal),
     decisionsCount: countDecisionLines(artifactMap.decisions),
     agents: buildAgents(journal, handoffAgents),
@@ -943,8 +1041,50 @@ export function metricsToCsv(rows) {
         csvCell(journal.pending?.clientSource),
         csvCell(spendSources.join('|')),
         csvCell(threadIds.join('|')),
+        csvCell(spend.costUsdEstimated),
       ].join(','),
     )
   }
   return lines.join('\n')
+}
+
+export function shortAgentRole(role) {
+  const raw = String(role ?? '').trim()
+  if (!raw) {
+    return ''
+  }
+  const withoutClosedBlurb = raw.split(/\s+[—–-]\s+/)[0].trim()
+  const withoutParen = withoutClosedBlurb.replace(/\s*\([^)]*\)\s*$/, '').trim()
+  return withoutParen || withoutClosedBlurb || raw
+}
+
+export function uniqueShortAgentRoles(roles) {
+  const result = []
+  for (const role of roles ?? []) {
+    const short = shortAgentRole(role)
+    if (short && !result.includes(short)) {
+      result.push(short)
+    }
+  }
+  return result
+}
+
+export function formatAgentsCell(agents) {
+  const runtime = agents?.runtime
+  const roles = uniqueShortAgentRoles(agents?.roles)
+  const parts = [runtime, ...roles].filter(Boolean)
+  if (parts.length === 0) {
+    return null
+  }
+  return parts.join(' · ')
+}
+
+export function formatAgentsTitle(agents) {
+  const runtime = agents?.runtime
+  const roles = agents?.roles ?? []
+  const parts = [runtime, ...roles].filter(Boolean)
+  if (parts.length === 0) {
+    return ''
+  }
+  return parts.join(' · ')
 }

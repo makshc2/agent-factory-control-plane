@@ -30,6 +30,15 @@ describe('ToastStack', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Борд оновлено')
+    expect(wrapper.find('.toast--success').exists()).toBe(true)
+    expect(wrapper.find('.toast-stack').exists()).toBe(true)
+
+    toasts.warning('Борд оновлено з помилкою в 1 проєкті')
+    toasts.error('Немає відповіді від сервера')
+    await nextTick()
+
+    expect(wrapper.find('.toast--warning').exists()).toBe(true)
+    expect(wrapper.find('.toast--error').exists()).toBe(true)
 
     vi.advanceTimersByTime(4000)
     await nextTick()

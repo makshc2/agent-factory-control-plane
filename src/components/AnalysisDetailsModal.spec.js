@@ -167,7 +167,6 @@ describe('AnalysisDetailsModal', () => {
       props: { row },
     })
 
-    expect(wrapper.text()).toContain('Деталі метрик')
     expect(wrapper.text()).toContain('Журнал · джерело')
     expect(wrapper.text()).toContain('файл metrics.json')
     expect(wrapper.text()).toContain('Усього · сесії')
@@ -188,8 +187,8 @@ describe('AnalysisDetailsModal', () => {
     expect(wrapper.text()).not.toContain('0.0 год')
     expect(wrapper.text()).not.toContain('spend.source')
     expect(wrapper.text()).not.toContain('1–5')
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-    expect(wrapper.find('.analysis-details-modal').exists()).toBe(true)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(wrapper.find('.analysis-details').exists()).toBe(true)
     expect(wrapper.findAll('.analysis-journal-scroll')).toHaveLength(5)
     expect(wrapper.text()).toContain('Як рахується час')
     expect(wrapper.text()).toContain('час сесій kit (metrics.json), не інтервал комітів')
@@ -352,16 +351,55 @@ describe('AnalysisDetailsModal', () => {
     expect(wrapper.findAll('.analysis-journal-scroll')).toHaveLength(5)
   })
 
-  it('emits close on Закрити and Escape', async () => {
+  it('shows kit overlay estimate when billed cost is missing', async () => {
     wrapper = mount(AnalysisDetailsModal, {
       attachTo: document.body,
-      props: { row },
+      props: {
+        row: {
+          ...row,
+          spend: {
+            costUsd: null,
+            costUsdEstimated: 0.42,
+            source: 'metrics-file',
+          },
+        },
+      },
     })
 
-    await wrapper.findAll('button').find((button) => button.text() === 'Закрити').trigger('click')
-    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(wrapper.text()).toContain('≈ $0.42')
+  })
 
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-    expect(wrapper.emitted('close')).toHaveLength(2)
+  it('shows kit platform estimate without mixing Amp credits', async () => {
+    wrapper = mount(AnalysisDetailsModal, {
+      attachTo: document.body,
+      props: {
+        row: {
+          ...row,
+          journal: {
+            ...row.journal,
+            spendByPlatform: {
+              ...row.journal.spendByPlatform,
+              cursor: {
+                inputTokens: null,
+                outputTokens: null,
+                totalTokens: null,
+                costUsd: null,
+                costUsdEstimated: 0.18,
+                ampCredits: null,
+                source: 'cursor-hook',
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('≈ $0.18')
+    expect(text).toContain('Amp credits')
+    const platformsTable = wrapper.findAll('.analysis-journal-table')[0]
+    const cursorCells = platformsTable.findAll('tbody tr')[0].findAll('td')
+    expect(cursorCells[4].text()).toBe('≈ $0.18')
+    expect(cursorCells[5].text()).toBe('—')
   })
 })

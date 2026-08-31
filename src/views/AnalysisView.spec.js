@@ -123,12 +123,22 @@ function columnText(wrapper, header, rowIndex = 0) {
   return wrapper.findAll('tbody tr')[rowIndex].findAll('td')[index].text()
 }
 
+function columnTitle(wrapper, header, rowIndex = 0) {
+  const index = wrapper.findAll('thead th').findIndex((th) => th.text() === header)
+  return wrapper.findAll('tbody tr')[rowIndex].findAll('td')[index].attributes('title') ?? ''
+}
+
 async function createTestRouter(projectId) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'board', component: { template: '<div>Board stub</div>' } },
       { path: '/analysis/:projectId', name: 'analysis', component: AnalysisView },
+      {
+        path: '/analysis/:projectId/metrics/:changeRef',
+        name: 'analysis-details',
+        component: { template: '<div>Деталі метрик stub</div>' },
+      },
     ],
   })
   await router.push(`/analysis/${projectId}`)
@@ -160,7 +170,7 @@ describe('AnalysisView', () => {
         plugins: [router, pinia],
       },
     })
-    return wrapper
+    return { wrapper, router }
   }
 
   it('shows empty registry message', async () => {
@@ -235,7 +245,7 @@ describe('AnalysisView', () => {
     expect(wrapper.text()).not.toContain('add-login')
   })
 
-  it('opens analysis details in a modal with Kyiv dates', async () => {
+  it('opens analysis details on a separate page', async () => {
     const client = createClient({
       listCommitsByPath: vi.fn().mockResolvedValue([
         { sha: 'a', date: '2026-08-27T10:56:57.000Z' },
@@ -244,27 +254,19 @@ describe('AnalysisView', () => {
     })
     getProviderClient.mockReturnValue(client)
     useRegistryStore().addProject(projectData)
-    wrapper = mount(AnalysisView, {
-      attachTo: document.body,
-      global: {
-        plugins: [await createTestRouter(useRegistryStore().projects[0].id), pinia],
-      },
-    })
+    const { router } = await mountAnalysis(useRegistryStore().projects[0].id)
     await flushPromises()
 
     expect(wrapper.text()).toContain('2 хв 24 с')
     expect(wrapper.text()).not.toContain('0.0 год')
 
-    const detailsBtn = wrapper.findAll('button').find((button) => button.text() === 'Деталі метрик')
+    const detailsBtn = wrapper.find('[aria-label="Деталі метрик"]')
     await detailsBtn.trigger('click')
-    await nextTick()
+    await flushPromises()
 
-    const dialog = document.body.querySelector('[role="dialog"]')
-    expect(dialog).not.toBeNull()
-    expect(dialog.textContent).toContain('Деталі метрик')
-    expect(dialog.textContent).toContain('Джерело витрат')
-    expect(dialog.textContent).toContain('27.08.2026, 13:56')
-    expect(dialog.textContent).not.toContain('spend.source')
+    expect(router.currentRoute.value.name).toBe('analysis-details')
+    expect(router.currentRoute.value.params.changeRef).toBe('c:add-login')
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
   })
 
   it('shows kit journal columns from metrics.json without zero cost', async () => {
@@ -278,10 +280,12 @@ describe('AnalysisView', () => {
     expect(text).toContain('Сесії')
     expect(text).toContain('Lead time')
     expect(text).toContain('Моделі')
-    expect(text).toContain('Платформи')
+    expect(text).not.toContain('Платформи')
+    expect(text).not.toContain('Агенти')
     expect(text).toContain('7')
     expect(text).toContain('cursor-grok-4.6')
     expect(text).not.toContain('$0.00')
+    expect(columnText(wrapper, 'Цикли рев’ю')).toBe('2')
   })
 
   it('shows pending badge when the journal has an open session', async () => {
@@ -340,7 +344,40 @@ describe('AnalysisView', () => {
     expect(useToastsStore().items.some((item) => item.message.includes('Аналіз оновлено'))).toBe(true)
   })
 
-  it('toasts after CSV export', async () => {
+  it('lists only LLM model names in the Models column', async () => {
+    const client = createJournalClient({
+      sessions: [
+        {
+          role: 'Explorer — discovery complete, ready for Architect',
+          model: 'cursor-grok-4.6',
+          runtime: 'local',
+        },
+        {
+          role: 'Architect (`spec-architect`) — propose complete, artifacts validated, ready for Spec Reviewer',
+          model: 'cursor-grok-4.6',
+          runtime: 'local',
+        },
+      ],
+      phases: {},
+      spendByModel: [{ model: 'cursor-grok-4.6' }],
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    const modelsIndex = wrapper.findAll('thead th').findIndex((th) => th.text() === 'Моделі')
+    const modelsTd = wrapper.findAll('tbody tr')[0].findAll('td')[modelsIndex]
+    expect(modelsTd.text()).toContain('cursor-grok-4.6')
+    expect(modelsTd.text()).not.toContain('Explorer')
+    expect(modelsTd.text()).not.toContain('Architect')
+    expect(modelsTd.text()).not.toContain('discovery')
+    expect(modelsTd.classes()).toContain('analysis-table__stack-cell')
+    expect(wrapper.findAll('thead th').some((th) => th.text() === 'Агенти')).toBe(false)
+    expect(wrapper.findAll('thead th').some((th) => th.text() === 'Платформи')).toBe(false)
+  })
+
+  it('does not toast after CSV export', async () => {
     const createObjectURL = vi.fn(() => 'blob:test')
     const revokeObjectURL = vi.fn()
     URL.createObjectURL = createObjectURL
@@ -350,13 +387,72 @@ describe('AnalysisView', () => {
     useRegistryStore().addProject(projectData)
     await mountAnalysis(useRegistryStore().projects[0].id)
     await flushPromises()
+    useToastsStore().items.splice(0)
 
     const exportButton = wrapper.findAll('button').find((button) => button.text() === 'Експорт CSV')
     await exportButton.trigger('click')
 
-    expect(useToastsStore().items.some((item) => item.message === 'CSV експортовано')).toBe(true)
+    expect(useToastsStore().items).toHaveLength(0)
     expect(createObjectURL).toHaveBeenCalled()
     expect(click).toHaveBeenCalled()
     click.mockRestore()
+  })
+
+  it('shows kit estimated cost when billed costUsd is missing', async () => {
+    const client = createJournalClient({
+      spend: {
+        inputTokens: 3818279,
+        outputTokens: 38764,
+        totalTokens: 3857043,
+        costUsd: null,
+        costUsdEstimated: 0.42,
+      },
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(columnText(wrapper, 'Вартість')).toBe('≈ $0.42')
+    expect(columnTitle(wrapper, 'Вартість')).toContain('оцінка kit (costUsdEstimated)')
+    expect(columnTitle(wrapper, 'Вартість')).not.toContain('$3 / 1M')
+  })
+
+  it('shows billed cost and keeps kit estimate in the tooltip', async () => {
+    getProviderClient.mockReturnValue(
+      createJournalClient({
+        spend: {
+          costUsd: 1.5,
+          costUsdEstimated: 0.42,
+        },
+      }),
+    )
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(columnText(wrapper, 'Вартість')).toBe('$1.50')
+    expect(columnText(wrapper, 'Вартість')).not.toContain('≈')
+    expect(columnTitle(wrapper, 'Вартість')).toContain('billed')
+    expect(columnTitle(wrapper, 'Вартість')).toContain('≈ $0.42 kit')
+  })
+
+  it('shows a dash when tokens exist without billed or kit estimate', async () => {
+    getProviderClient.mockReturnValue(
+      createJournalClient({
+        spend: {
+          inputTokens: 3818279,
+          outputTokens: 38764,
+          totalTokens: 3857043,
+          costUsd: null,
+        },
+      }),
+    )
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(columnText(wrapper, 'Вартість')).toBe('—')
+    expect(columnText(wrapper, 'Вартість')).not.toContain('$')
   })
 })

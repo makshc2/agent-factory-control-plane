@@ -13,6 +13,11 @@ describe('App', () => {
         { path: '/', name: 'board', component: BoardView },
         { path: '/analysis', redirect: '/' },
         { path: '/analysis/:projectId', name: 'analysis', component: { template: '<div>Аналіз змін</div>' } },
+        {
+          path: '/analysis/:projectId/metrics/:changeRef',
+          name: 'analysis-details',
+          component: { template: '<div>Деталі метрик</div>' },
+        },
       ],
     })
     router.push('/')
@@ -34,6 +39,11 @@ describe('App', () => {
         { path: '/', name: 'board', component: BoardView },
         { path: '/analysis', redirect: '/' },
         { path: '/analysis/:projectId', name: 'analysis', component: { template: '<div>Аналіз змін</div>' } },
+        {
+          path: '/analysis/:projectId/metrics/:changeRef',
+          name: 'analysis-details',
+          component: { template: '<div>Деталі метрик</div>' },
+        },
       ],
     })
     await router.push('/analysis')
