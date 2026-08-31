@@ -120,6 +120,11 @@ const row = {
         model: 'cursor-grok-4.6',
         platform: 'cursor',
         runtime: 'local',
+        threadId: null,
+        spendSource: 'unreported',
+        ampCredits: null,
+        models: [],
+        sources: [],
         startedAt: '2026-08-27T10:56:57.000Z',
         endedAt: '2026-08-27T11:04:45.000Z',
       },
@@ -129,6 +134,11 @@ const row = {
         model: 'cursor-grok-4.6',
         platform: 'cursor',
         runtime: 'local',
+        threadId: null,
+        spendSource: 'unreported',
+        ampCredits: null,
+        models: [],
+        sources: [],
         startedAt: '2026-08-27T11:10:00.000Z',
         endedAt: '2026-08-27T11:30:19.000Z',
       },
@@ -179,6 +189,27 @@ describe('AnalysisDetailsModal', () => {
     expect(wrapper.text()).not.toContain('spend.source')
     expect(wrapper.text()).not.toContain('1–5')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    expect(wrapper.find('.analysis-details-modal').exists()).toBe(true)
+    expect(wrapper.findAll('.analysis-journal-scroll')).toHaveLength(5)
+    expect(wrapper.text()).toContain('Як рахується час')
+    expect(wrapper.text()).toContain('час сесій kit (metrics.json), не інтервал комітів')
+    expect(wrapper.text()).not.toContain('інтервал комітів файлів, не wall-clock сесії')
+    expect(wrapper.text()).toContain('cursor-grok-4.6')
+  })
+
+  it('shows session and phase models when spendByModel is empty and spend is null', async () => {
+    wrapper = mount(AnalysisDetailsModal, {
+      attachTo: document.body,
+      props: { row },
+    })
+
+    const tables = wrapper.findAll('.analysis-journal-table')
+    const modelsTable = tables[1]
+    expect(modelsTable.text()).toContain('Модель')
+    expect(modelsTable.text()).toContain('cursor-grok-4.6')
+    expect(modelsTable.text()).not.toContain('немає')
+    expect(wrapper.text()).toContain('Architect')
+    expect(wrapper.text()).toContain('Implementer')
   })
 
   it('keeps journal labels and dashes when source is unknown', async () => {
@@ -251,6 +282,74 @@ describe('AnalysisDetailsModal', () => {
     expect(text).toContain('—')
     expect(text).not.toContain('$0.00')
     expect(text).not.toContain('файл metrics.json')
+    expect(text).toContain('інтервал комітів файлів, не wall-clock сесії')
+    expect(text).not.toContain('час сесій kit (metrics.json), не інтервал комітів')
+  })
+
+  it('shows kit 0.8.0 pending client, session spend source, thread, and sources', async () => {
+    wrapper = mount(AnalysisDetailsModal, {
+      attachTo: document.body,
+      props: {
+        row: {
+          ...row,
+          agents: {
+            ...row.agents,
+            platforms: ['amp'],
+            models: ['glm-5.2', 'cursor-grok-4.5-low'],
+          },
+          journal: {
+            ...row.journal,
+            pending: {
+              startedAt: '2026-08-31T05:21:00.000Z',
+              role: 'Spec Reviewer',
+              platform: 'amp',
+              threadId: 'T-01a0541e-a7f5-779f-9305-4b9a467c90f8',
+              clientSource: 'amp-threads-list',
+            },
+            sessions: [
+              {
+                role: 'Implementer',
+                phase: 'apply',
+                model: 'glm-5.2',
+                models: ['glm-5.2', 'cursor-grok-4.5-low'],
+                platform: 'amp',
+                runtime: 'local',
+                threadId: 'T-01a0541e-a7f5-779f-9305-4b9a467c90f8',
+                spendSource: 'adapter',
+                ampCredits: 12,
+                totalTokens: 195000,
+                sources: [
+                  {
+                    id: 'T-01a0541e-a7f5-779f-9305-4b9a467c90f8:1',
+                    via: 'amp-cli',
+                    platform: 'amp',
+                    model: 'glm-5.2',
+                    totalTokens: 184000,
+                    ampCredits: 10,
+                    at: '2026-08-31T05:10:00.000Z',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('Журнал · pending платформа')
+    expect(text).toContain('Журнал · pending thread')
+    expect(text).toContain('Журнал · pending клієнт')
+    expect(text).toContain('amp-threads-list')
+    expect(text).toContain('T-01a0541e-a7f5-779f-9305-4b9a467c90f8')
+    expect(text).toContain('адаптер')
+    expect(text).toContain('amp-cli')
+    expect(text).toContain('glm-5.2')
+    expect(text).toContain('cursor-grok-4.5-low')
+    expect(text).toContain('Джерело spend')
+    expect(text).toContain('Source id')
+    expect(text).toContain('Via')
+    expect(wrapper.findAll('.analysis-journal-scroll')).toHaveLength(5)
   })
 
   it('emits close on Закрити and Escape', async () => {

@@ -236,7 +236,7 @@ body {
 
 .analysis-table {
   width: 100%;
-  min-width: 64rem;
+  min-width: 72rem;
   border-collapse: collapse;
 }
 
@@ -266,7 +266,9 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(36rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  width: min(90rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
   max-height: calc(100vh - 2rem);
   overflow: auto;
   z-index: 41;
@@ -305,6 +307,7 @@ body {
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .analysis-details-table thead th {
@@ -328,10 +331,16 @@ body {
   margin-left: 0.35rem;
 }
 
-.analysis-journal-table {
-  width: 100%;
-  border-collapse: collapse;
+.analysis-journal-scroll {
+  overflow-x: auto;
   margin-top: 1rem;
+  max-width: 100%;
+}
+
+.analysis-journal-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
 }
 
 .analysis-journal-table th,
@@ -340,6 +349,16 @@ body {
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
   vertical-align: top;
+  white-space: nowrap;
+}
+
+.analysis-journal-table thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  background: #f8fafc;
 }
 
 .board-table__col-project {

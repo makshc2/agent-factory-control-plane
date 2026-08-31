@@ -111,6 +111,24 @@ function modelsLabel(row) {
   return models.join(' · ')
 }
 
+function platformsLabel(row) {
+  const platforms = row.agents?.platforms ?? []
+  if (platforms.length === 0) {
+    return DASH
+  }
+  return platforms.join(' · ')
+}
+
+function pendingTitle(row) {
+  const pending = row.journal?.pending
+  if (!pending) {
+    return ''
+  }
+  return [pending.role, pending.platform, pending.threadId, pending.clientSource]
+    .filter(Boolean)
+    .join(' · ')
+}
+
 function tokensLabel(row) {
   const totalTokens = row.spend?.totalTokens
   if (totalTokens == null) {
@@ -256,6 +274,7 @@ watch(
             <th>Вартість</th>
             <th>Агенти</th>
             <th>Моделі</th>
+            <th>Платформи</th>
             <th>Деталі</th>
           </tr>
         </thead>
@@ -270,6 +289,7 @@ watch(
               <span
                 v-if="row.journal?.pending != null"
                 class="analysis-pending"
+                :title="pendingTitle(row)"
               >триває</span>
             </td>
             <td>{{ archiveLabel(row) }}</td>
@@ -294,6 +314,7 @@ watch(
             <td>{{ costLabel(row) }}</td>
             <td>{{ agentsLabel(row) }}</td>
             <td>{{ modelsLabel(row) }}</td>
+            <td>{{ platformsLabel(row) }}</td>
             <td>
               <button
                 type="button"

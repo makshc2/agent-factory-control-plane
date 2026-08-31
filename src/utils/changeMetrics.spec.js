@@ -11,6 +11,8 @@ import {
   parseHandoffAgents,
   buildChangeMetrics,
   metricsToCsv,
+  collectJournalModels,
+  collectJournalModelRows,
 } from './changeMetrics.js'
 
 const KIT_JOURNAL = {
@@ -326,6 +328,233 @@ describe('buildChangeMetrics', () => {
     }
     expect(result.agents.runtime).toBe('local')
   })
+
+  it('reads models from spendByModel when session.model is null', () => {
+    const result = buildChangeMetrics({
+      project,
+      changeName: 'amp-archive',
+      archived: true,
+      artifacts: {
+        metrics: JSON.stringify({
+          version: 1,
+          spend: {
+            inputTokens: null,
+            outputTokens: null,
+            totalTokens: null,
+            costUsd: null,
+          },
+          spendByPlatform: {
+            amp: { source: 'amp-thread' },
+          },
+          spendByModel: [
+            {
+              model: 'amp-sonnet',
+              platform: 'amp',
+              inputTokens: 40,
+              outputTokens: 6,
+              totalTokens: 46,
+              costUsd: null,
+              ampCredits: null,
+            },
+          ],
+          totals: { sessions: 1, durationMs: null, leadTimeMs: null, cloudSessions: 0 },
+          phases: {
+            archive: { agents: ['Archiver'], models: [] },
+          },
+          sessions: [
+            {
+              role: 'Archiver',
+              phase: 'archive',
+              model: null,
+              platform: 'amp',
+              runtime: 'local',
+              sources: [{ model: 'amp-sonnet', platform: 'amp', totalTokens: 46 }],
+            },
+          ],
+        }),
+        handoff: '## Closed role\nArchiver\n',
+      },
+      commits: {},
+    })
+
+    expect(result.journal.source).toBe('metrics-file')
+    expect(result.spend.source).toBe('unknown')
+    expect(result.agents.models).toEqual(['amp-sonnet'])
+    expect(result.agents.platforms).toEqual(['amp'])
+    expect(result.agents.roles).toEqual(['Archiver'])
+    expect(result.journal.sessions).toHaveLength(1)
+    expect(result.agents.models).not.toContain('Archiver')
+  })
+})
+
+describe('kit 0.8.0 journal fields', () => {
+  const kit080 = {
+    version: 1,
+    change: 'amp-web-thread-lock',
+    spend: {
+      inputTokens: 190000,
+      outputTokens: 5000,
+      totalTokens: 195000,
+      costUsd: null,
+    },
+    spendByPlatform: {
+      amp: {
+        inputTokens: 190000,
+        outputTokens: 5000,
+        totalTokens: 195000,
+        costUsd: null,
+        ampCredits: 12,
+        source: 'amp-cli',
+      },
+    },
+    spendByModel: [
+      {
+        model: 'glm-5.2',
+        platform: 'amp',
+        inputTokens: 180000,
+        outputTokens: 4000,
+        totalTokens: 184000,
+        costUsd: null,
+        ampCredits: 10,
+      },
+      {
+        model: 'cursor-grok-4.5-low',
+        platform: 'amp',
+        inputTokens: 10000,
+        outputTokens: 1000,
+        totalTokens: 11000,
+        costUsd: null,
+        ampCredits: 2,
+      },
+    ],
+    totals: {
+      sessions: 1,
+      durationMs: 1200000,
+      leadTimeMs: 1200000,
+      cloudSessions: 0,
+    },
+    phases: {
+      apply: {
+        sessions: 1,
+        durationMs: 1200000,
+        agents: ['Implementer'],
+        models: ['glm-5.2', 'cursor-grok-4.5-low'],
+      },
+    },
+    sessions: [
+      {
+        role: 'Implementer',
+        phase: 'apply',
+        runtime: 'local',
+        model: 'glm-5.2',
+        models: ['glm-5.2', 'cursor-grok-4.5-low'],
+        platform: 'amp',
+        threadId: 'T-01a0541e-a7f5-779f-9305-4b9a467c90f8',
+        spendSource: 'adapter',
+        ampCredits: 12,
+        totalTokens: 195000,
+        sources: [
+          {
+            id: 'T-01a0541e-a7f5-779f-9305-4b9a467c90f8:1',
+            platform: 'amp',
+            model: 'glm-5.2',
+            via: 'amp-cli',
+            totalTokens: 184000,
+            ampCredits: 10,
+            at: '2026-08-31T05:10:00.000Z',
+          },
+        ],
+      },
+    ],
+    pending: {
+      startedAt: '2026-08-31T05:21:00.000Z',
+      role: 'Spec Reviewer',
+      platform: 'amp',
+      threadId: 'T-01a0541e-a7f5-779f-9305-4b9a467c90f8',
+      clientSource: 'amp-threads-list',
+    },
+  }
+
+  it('keeps locked client, spendSource, thread, via, and extra models', () => {
+    const journal = parseKitMetrics(JSON.stringify(kit080))
+    const session = journal.sessions[0]
+
+    expect(journal.pending).toEqual({
+      startedAt: '2026-08-31T05:21:00.000Z',
+      role: 'Spec Reviewer',
+      platform: 'amp',
+      threadId: 'T-01a0541e-a7f5-779f-9305-4b9a467c90f8',
+      clientSource: 'amp-threads-list',
+    })
+    expect(session.spendSource).toBe('adapter')
+    expect(session.threadId).toBe('T-01a0541e-a7f5-779f-9305-4b9a467c90f8')
+    expect(session.ampCredits).toBe(12)
+    expect(session.models).toEqual(['glm-5.2', 'cursor-grok-4.5-low'])
+    expect(session.sources[0].via).toBe('amp-cli')
+    expect(journal.spend.costUsd).toBeNull()
+    expect(journal.spendByPlatform.amp.ampCredits).toBe(12)
+  })
+
+  it('treats a legacy session without spendSource as unreported', () => {
+    const journal = parseKitMetrics('{"sessions":[{"role":"Architect"}]}')
+    expect(journal.sessions[0].spendSource).toBe('unreported')
+    expect(journal.sessions[0].models).toEqual([])
+    expect(journal.pending).toBeNull()
+  })
+
+  it('exposes 0.8.0 fields on the analysis row and csv', () => {
+    const row = buildChangeMetrics({
+      project: { id: 'p1', repo: 'org/kit', provider: 'github' },
+      changeName: 'amp-web-thread-lock',
+      archived: false,
+      artifacts: { metrics: JSON.stringify(kit080) },
+      commits: {},
+    })
+    const csv = metricsToCsv([row])
+    const [header, data] = csv.split('\n')
+    const cells = Object.fromEntries(
+      header.split(',').map((key, index) => [key, data.split(',')[index]]),
+    )
+
+    expect(row.agents.platforms).toEqual(['amp'])
+    expect(row.agents.models).toEqual(['glm-5.2', 'cursor-grok-4.5-low'])
+    expect(row.journal.pending.clientSource).toBe('amp-threads-list')
+    expect(cells.platforms).toBe('amp')
+    expect(cells.pending_platform).toBe('amp')
+    expect(cells.pending_thread_id).toBe('T-01a0541e-a7f5-779f-9305-4b9a467c90f8')
+    expect(cells.pending_client_source).toBe('amp-threads-list')
+    expect(cells.session_spend_sources).toBe('adapter')
+    expect(cells.thread_ids).toBe('T-01a0541e-a7f5-779f-9305-4b9a467c90f8')
+    expect(cells.amp_credits).toBe('12')
+    expect(cells.cost_usd).toBe('')
+  })
+})
+
+describe('collectJournalModels', () => {
+  it('merges spendByModel, session.model, sources, and phase models and skips roles', () => {
+    const journal = {
+      spendByModel: [{ model: 'amp-sonnet', platform: 'amp' }],
+      sessions: [
+        { role: 'Archiver', model: null, sources: [{ model: 'amp-sonnet', platform: 'amp' }] },
+        { role: 'Implementer', model: 'cursor-grok-4.6', platform: 'cursor' },
+      ],
+      phases: {
+        spec: { models: ['cursor-grok-4.6'] },
+        archive: { models: ['Archiver'] },
+      },
+    }
+
+    const models = collectJournalModels(journal, ['Archiver', 'Implementer'])
+    expect(models).toEqual(['amp-sonnet', 'cursor-grok-4.6'])
+    expect(models).not.toContain('Archiver')
+    expect(models).not.toContain('Implementer')
+    const rows = collectJournalModelRows(journal, ['Archiver', 'Implementer'])
+    expect(rows.map((row) => `${row.model}::${row.platform || ''}`)).toEqual([
+      'amp-sonnet::amp',
+      'cursor-grok-4.6::cursor',
+    ])
+    expect(rows.some((row) => row.model === 'Archiver')).toBe(false)
+  })
 })
 
 describe('metricsToCsv', () => {
@@ -370,7 +599,7 @@ describe('metricsToCsv', () => {
     const pendingRoleIndex = header.split(',').indexOf('pending_role')
 
     const kitTail =
-      ',sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits'
+      ',sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids'
     expect(header).toContain(kitTail)
     expect(header.endsWith(kitTail)).toBe(true)
     expect(cells[sessionsIndex]).toBe('7')

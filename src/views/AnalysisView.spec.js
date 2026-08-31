@@ -277,6 +277,7 @@ describe('AnalysisView', () => {
     expect(text).toContain('Сесії')
     expect(text).toContain('Lead time')
     expect(text).toContain('Моделі')
+    expect(text).toContain('Платформи')
     expect(text).toContain('7')
     expect(text).toContain('cursor-grok-4.6')
     expect(text).not.toContain('$0.00')
@@ -284,7 +285,13 @@ describe('AnalysisView', () => {
 
   it('shows pending badge when the journal has an open session', async () => {
     const client = createJournalClient({
-      pending: { startedAt: '2026-08-29T09:00:00Z', role: 'Implementer' },
+      pending: {
+        startedAt: '2026-08-29T09:00:00Z',
+        role: 'Implementer',
+        platform: 'amp',
+        threadId: 'T-01a0541e-a7f5-779f-9305-4b9a467c90f8',
+        clientSource: 'amp-threads-list',
+      },
     })
     getProviderClient.mockReturnValue(client)
     useRegistryStore().addProject(projectData)
@@ -292,6 +299,10 @@ describe('AnalysisView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('триває')
+    const badge = wrapper.find('.analysis-pending')
+    expect(badge.attributes('title')).toBe(
+      'Implementer · amp · T-01a0541e-a7f5-779f-9305-4b9a467c90f8 · amp-threads-list',
+    )
   })
 
   it('keeps a dash in sessions without metrics.json and hides pending', async () => {

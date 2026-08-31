@@ -2,7 +2,7 @@
   "version": 1,
   "change": "consume-kit-metrics",
   "createdAt": "2026-08-29T10:17:21.742Z",
-  "updatedAt": "2026-08-29T11:01:17.759Z",
+  "updatedAt": "2026-08-29T12:54:05.431Z",
   "archivedAt": null,
   "spend": {
     "inputTokens": null,
@@ -74,5 +74,8 @@
       "costUsd": null
     }
   ],
-  "pending": null
+  "pending": {
+    "startedAt": "2026-08-29T12:54:05.431Z",
+    "role": "Archiver"
+  }
 }

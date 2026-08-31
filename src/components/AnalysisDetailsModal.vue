@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { collectJournalModelRows } from '@/utils/changeMetrics'
 import { formatDuration, formatKyivDate, formatKyivDateTime } from '@/utils/formatDateTime'
 
 const DASH = '—'
@@ -22,6 +23,13 @@ const spendSourceLabel = {
   unknown: 'невідомо',
 }
 
+const sessionSpendSourceLabel = {
+  adapter: 'адаптер',
+  'self-report': 'самозвіт',
+  flag: 'прапорець',
+  unreported: 'не вказано',
+}
+
 function textOrDash(value) {
   if (value == null || value === '') {
     return DASH
@@ -38,6 +46,26 @@ function listLabel(items, emptyLabel) {
     return emptyLabel
   }
   return items.join(' · ')
+}
+
+function sessionSpendLabel(value) {
+  if (value == null || value === '') {
+    return DASH
+  }
+  return sessionSpendSourceLabel[value] ?? value
+}
+
+function sessionModelsLabel(session) {
+  const models = []
+  if (typeof session?.model === 'string' && session.model !== '') {
+    models.push(session.model)
+  }
+  for (const model of session?.models ?? []) {
+    if (typeof model === 'string' && model !== '' && !models.includes(model)) {
+      models.push(model)
+    }
+  }
+  return listLabel(models, DASH)
 }
 
 function costLabel(value) {
@@ -91,6 +119,9 @@ const detailRows = computed(() => {
       label: 'Журнал · pending з',
       value: textOrDash(formatKyivDateTime(journal?.pending?.startedAt)),
     },
+    { label: 'Журнал · pending платформа', value: textOrDash(journal?.pending?.platform) },
+    { label: 'Журнал · pending thread', value: textOrDash(journal?.pending?.threadId) },
+    { label: 'Журнал · pending клієнт', value: textOrDash(journal?.pending?.clientSource) },
     { label: 'Усього · сесії', value: textOrDash(journal?.totals?.sessions) },
     { label: 'Усього · хмарні сесії', value: textOrDash(journal?.totals?.cloudSessions) },
     { label: 'Kit · робочий час', value: textOrDash(formatDuration(kitTimes?.workMs)) },
@@ -111,7 +142,10 @@ const detailRows = computed(() => {
     { label: 'Ролі', value: listLabel(agents.roles, DASH) },
     {
       label: 'Як рахується час',
-      value: 'інтервал комітів файлів, не wall-clock сесії',
+      value:
+        journal?.source === 'metrics-file' || kitTimes?.source === 'kit-sessions'
+          ? 'час сесій kit (metrics.json), не інтервал комітів'
+          : 'інтервал комітів файлів, не wall-clock сесії',
     },
   ]
 })
@@ -133,8 +167,8 @@ const platformRows = computed(() => {
 })
 
 const modelRows = computed(() => {
-  const models = Array.isArray(props.row.journal?.spendByModel) ? props.row.journal.spendByModel : []
-  return models.map((item) => ({
+  const blocked = props.row.agents?.roles ?? []
+  return collectJournalModelRows(props.row.journal ?? {}, blocked).map((item) => ({
     model: textOrDash(item.model),
     platform: textOrDash(item.platform),
     inputTokens: textOrDash(item.inputTokens),
@@ -167,30 +201,58 @@ const sessionRows = computed(() => {
     const {
       role,
       phase,
-      model,
       platform,
       runtime,
+      threadId,
+      spendSource,
       startedAt,
       endedAt,
       durationMs,
       totalTokens,
       costUsd,
+      ampCredits,
       tasks,
     } = session
     return {
       role: textOrDash(role),
       phase: textOrDash(phase),
-      model: textOrDash(model),
+      model: sessionModelsLabel(session),
       platform: textOrDash(platform),
       runtime: textOrDash(runtime),
+      threadId: textOrDash(threadId),
+      spendSource: sessionSpendLabel(spendSource),
       startedAt: textOrDash(formatKyivDateTime(startedAt)),
       endedAt: textOrDash(formatKyivDateTime(endedAt)),
       duration: textOrDash(formatDuration(durationMs)),
       tokens: textOrDash(totalTokens),
       costUsd: costLabel(costUsd),
+      ampCredits: textOrDash(ampCredits),
       tasks: textOrDash(tasks),
     }
   })
+})
+
+const sourceRows = computed(() => {
+  const sessions = Array.isArray(props.row.journal?.sessions) ? props.row.journal.sessions : []
+  const rows = []
+  for (const session of sessions) {
+    for (const source of session.sources ?? []) {
+      rows.push({
+        role: textOrDash(session.role),
+        id: textOrDash(source.id),
+        via: textOrDash(source.via),
+        platform: textOrDash(source.platform),
+        model: textOrDash(source.model),
+        inputTokens: textOrDash(source.inputTokens),
+        outputTokens: textOrDash(source.outputTokens),
+        totalTokens: textOrDash(source.totalTokens),
+        costUsd: costLabel(source.costUsd),
+        ampCredits: textOrDash(source.ampCredits),
+        at: textOrDash(formatKyivDateTime(source.at)),
+      })
+    }
+  }
+  return rows
 })
 
 function emitClose() {
@@ -258,134 +320,191 @@ onUnmounted(() => {
           </tr>
         </tbody>
       </table>
-      <table class="analysis-journal-table">
-        <thead>
-          <tr>
-            <th>Платформа</th>
-            <th>Вхід</th>
-            <th>Вихід</th>
-            <th>Усього</th>
-            <th>Вартість</th>
-            <th>Amp credits</th>
-            <th>Джерело</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="item in platformRows"
-            :key="item.platform"
-          >
-            <td>{{ item.platform }}</td>
-            <td>{{ item.inputTokens }}</td>
-            <td>{{ item.outputTokens }}</td>
-            <td>{{ item.totalTokens }}</td>
-            <td>{{ item.costUsd }}</td>
-            <td>{{ item.ampCredits }}</td>
-            <td>{{ item.source }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <table class="analysis-journal-table">
-        <thead>
-          <tr>
-            <th>Модель</th>
-            <th>Платформа</th>
-            <th>Вхід</th>
-            <th>Вихід</th>
-            <th>Усього</th>
-            <th>Вартість</th>
-            <th>Amp credits</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="modelRows.length === 0">
-            <td colspan="7">
-              немає
-            </td>
-          </tr>
-          <tr
-            v-for="(item, index) in modelRows"
-            v-else
-            :key="index"
-          >
-            <td>{{ item.model }}</td>
-            <td>{{ item.platform }}</td>
-            <td>{{ item.inputTokens }}</td>
-            <td>{{ item.outputTokens }}</td>
-            <td>{{ item.totalTokens }}</td>
-            <td>{{ item.costUsd }}</td>
-            <td>{{ item.ampCredits }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <table class="analysis-journal-table">
-        <thead>
-          <tr>
-            <th>Фаза</th>
-            <th>Сесії</th>
-            <th>Тривалість</th>
-            <th>Токени</th>
-            <th>Вартість</th>
-            <th>Агенти</th>
-            <th>Моделі</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="item in phaseRows"
-            :key="item.phase"
-          >
-            <td>{{ item.phase }}</td>
-            <td>{{ item.sessions }}</td>
-            <td>{{ item.duration }}</td>
-            <td>{{ item.tokens }}</td>
-            <td>{{ item.costUsd }}</td>
-            <td>{{ item.agents }}</td>
-            <td>{{ item.models }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <table class="analysis-journal-table">
-        <thead>
-          <tr>
-            <th>Роль</th>
-            <th>Фаза</th>
-            <th>Модель</th>
-            <th>Платформа</th>
-            <th>Середовище</th>
-            <th>Початок</th>
-            <th>Кінець</th>
-            <th>Тривалість</th>
-            <th>Токени</th>
-            <th>Вартість</th>
-            <th>Задачі</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="sessionRows.length === 0">
-            <td colspan="11">
-              немає
-            </td>
-          </tr>
-          <tr
-            v-for="(item, index) in sessionRows"
-            v-else
-            :key="index"
-          >
-            <td>{{ item.role }}</td>
-            <td>{{ item.phase }}</td>
-            <td>{{ item.model }}</td>
-            <td>{{ item.platform }}</td>
-            <td>{{ item.runtime }}</td>
-            <td>{{ item.startedAt }}</td>
-            <td>{{ item.endedAt }}</td>
-            <td>{{ item.duration }}</td>
-            <td>{{ item.tokens }}</td>
-            <td>{{ item.costUsd }}</td>
-            <td>{{ item.tasks }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="analysis-journal-scroll">
+        <table class="analysis-journal-table">
+          <thead>
+            <tr>
+              <th>Платформа</th>
+              <th>Вхід</th>
+              <th>Вихід</th>
+              <th>Усього</th>
+              <th>Вартість</th>
+              <th>Amp credits</th>
+              <th>Джерело</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="item in platformRows"
+              :key="item.platform"
+            >
+              <td>{{ item.platform }}</td>
+              <td>{{ item.inputTokens }}</td>
+              <td>{{ item.outputTokens }}</td>
+              <td>{{ item.totalTokens }}</td>
+              <td>{{ item.costUsd }}</td>
+              <td>{{ item.ampCredits }}</td>
+              <td>{{ item.source }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="analysis-journal-scroll">
+        <table class="analysis-journal-table">
+          <thead>
+            <tr>
+              <th>Модель</th>
+              <th>Платформа</th>
+              <th>Вхід</th>
+              <th>Вихід</th>
+              <th>Усього</th>
+              <th>Вартість</th>
+              <th>Amp credits</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="modelRows.length === 0">
+              <td colspan="7">
+                немає
+              </td>
+            </tr>
+            <tr
+              v-for="(item, index) in modelRows"
+              v-else
+              :key="index"
+            >
+              <td>{{ item.model }}</td>
+              <td>{{ item.platform }}</td>
+              <td>{{ item.inputTokens }}</td>
+              <td>{{ item.outputTokens }}</td>
+              <td>{{ item.totalTokens }}</td>
+              <td>{{ item.costUsd }}</td>
+              <td>{{ item.ampCredits }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="analysis-journal-scroll">
+        <table class="analysis-journal-table">
+          <thead>
+            <tr>
+              <th>Фаза</th>
+              <th>Сесії</th>
+              <th>Тривалість</th>
+              <th>Токени</th>
+              <th>Вартість</th>
+              <th>Агенти</th>
+              <th>Моделі</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="item in phaseRows"
+              :key="item.phase"
+            >
+              <td>{{ item.phase }}</td>
+              <td>{{ item.sessions }}</td>
+              <td>{{ item.duration }}</td>
+              <td>{{ item.tokens }}</td>
+              <td>{{ item.costUsd }}</td>
+              <td>{{ item.agents }}</td>
+              <td>{{ item.models }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="analysis-journal-scroll">
+        <table class="analysis-journal-table">
+          <thead>
+            <tr>
+              <th>Роль</th>
+              <th>Фаза</th>
+              <th>Модель</th>
+              <th>Платформа</th>
+              <th>Середовище</th>
+              <th>Thread</th>
+              <th>Джерело spend</th>
+              <th>Початок</th>
+              <th>Кінець</th>
+              <th>Тривалість</th>
+              <th>Токени</th>
+              <th>Вартість</th>
+              <th>Amp credits</th>
+              <th>Задачі</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="sessionRows.length === 0">
+              <td colspan="14">
+                немає
+              </td>
+            </tr>
+            <tr
+              v-for="(item, index) in sessionRows"
+              v-else
+              :key="index"
+            >
+              <td>{{ item.role }}</td>
+              <td>{{ item.phase }}</td>
+              <td>{{ item.model }}</td>
+              <td>{{ item.platform }}</td>
+              <td>{{ item.runtime }}</td>
+              <td>{{ item.threadId }}</td>
+              <td>{{ item.spendSource }}</td>
+              <td>{{ item.startedAt }}</td>
+              <td>{{ item.endedAt }}</td>
+              <td>{{ item.duration }}</td>
+              <td>{{ item.tokens }}</td>
+              <td>{{ item.costUsd }}</td>
+              <td>{{ item.ampCredits }}</td>
+              <td>{{ item.tasks }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="analysis-journal-scroll">
+        <table class="analysis-journal-table">
+          <thead>
+            <tr>
+              <th>Роль</th>
+              <th>Source id</th>
+              <th>Via</th>
+              <th>Платформа</th>
+              <th>Модель</th>
+              <th>Вхід</th>
+              <th>Вихід</th>
+              <th>Усього</th>
+              <th>Вартість</th>
+              <th>Amp credits</th>
+              <th>Час</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="sourceRows.length === 0">
+              <td colspan="11">
+                немає
+              </td>
+            </tr>
+            <tr
+              v-for="(item, index) in sourceRows"
+              v-else
+              :key="index"
+            >
+              <td>{{ item.role }}</td>
+              <td>{{ item.id }}</td>
+              <td>{{ item.via }}</td>
+              <td>{{ item.platform }}</td>
+              <td>{{ item.model }}</td>
+              <td>{{ item.inputTokens }}</td>
+              <td>{{ item.outputTokens }}</td>
+              <td>{{ item.totalTokens }}</td>
+              <td>{{ item.costUsd }}</td>
+              <td>{{ item.ampCredits }}</td>
+              <td>{{ item.at }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </aside>
   </div>
 </template>

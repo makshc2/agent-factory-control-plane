@@ -1,7 +1,7 @@
 import { parseHandoff, parseReviewVerdict, parseTasksProgress } from '@/utils/openspecParsers'
 
 const CSV_HEADER =
-  'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits'
+  'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids'
 
 const SPEND_KEYS = ['inputTokens', 'outputTokens', 'totalTokens', 'costUsd']
 const PLATFORM_KEYS = ['cursor', 'claude', 'amp']
@@ -31,9 +31,18 @@ const SESSION_STRING_KEYS = [
   'agentId',
   'model',
   'platform',
+  'threadId',
+  'spendSource',
   'tasks',
 ]
-const SESSION_NUMBER_KEYS = ['durationMs', 'inputTokens', 'outputTokens', 'totalTokens', 'costUsd']
+const SESSION_NUMBER_KEYS = [
+  'durationMs',
+  'inputTokens',
+  'outputTokens',
+  'totalTokens',
+  'costUsd',
+  'ampCredits',
+]
 const MODEL_SPEND_KEYS = [
   'inputTokens',
   'outputTokens',
@@ -400,6 +409,7 @@ function parseSessionSources(raw) {
       platform: nonEmptyString(item.platform),
       model: nonEmptyString(item.model),
       at: nonEmptyString(item.at),
+      via: nonEmptyString(item.via),
     }
     for (const key of SOURCE_NUMBER_KEYS) {
       source[key] = finiteNumber(item[key])
@@ -415,12 +425,16 @@ function parseSession(raw) {
   }
   const session = {
     sources: parseSessionSources(raw.sources),
+    models: parseStringList(raw.models),
   }
   for (const key of SESSION_STRING_KEYS) {
     session[key] = nonEmptyString(raw[key])
   }
   for (const key of SESSION_NUMBER_KEYS) {
     session[key] = finiteNumber(raw[key])
+  }
+  if (!session.spendSource) {
+    session.spendSource = 'unreported'
   }
   return session
 }
@@ -446,6 +460,9 @@ function parsePending(raw) {
   return {
     startedAt: nonEmptyString(raw.startedAt),
     role: nonEmptyString(raw.role),
+    platform: nonEmptyString(raw.platform),
+    threadId: nonEmptyString(raw.threadId),
+    clientSource: nonEmptyString(raw.clientSource),
   }
 }
 
@@ -492,10 +509,99 @@ function buildKitTimes(journal) {
   }
 }
 
+function spendByModelHasNames(journal) {
+  return (journal.spendByModel ?? []).some((item) => Boolean(item?.model))
+}
+
+export function collectJournalModels(journal, blockedNames = []) {
+  const blocked = new Set(blockedNames)
+  const models = []
+  for (const item of journal.spendByModel ?? []) {
+    if (item.model && !blocked.has(item.model)) {
+      pushUnique(models, item.model)
+    }
+  }
+  for (const session of journal.sessions ?? []) {
+    if (session.model && !blocked.has(session.model)) {
+      pushUnique(models, session.model)
+    }
+    for (const model of session.models ?? []) {
+      if (model && !blocked.has(model)) {
+        pushUnique(models, model)
+      }
+    }
+    for (const source of session.sources ?? []) {
+      if (source.model && !blocked.has(source.model)) {
+        pushUnique(models, source.model)
+      }
+    }
+  }
+  for (const key of PHASE_KEYS) {
+    for (const model of journal.phases?.[key]?.models ?? []) {
+      if (model && !blocked.has(model)) {
+        pushUnique(models, model)
+      }
+    }
+  }
+  return models
+}
+
+export function collectJournalModelRows(journal, blockedNames = []) {
+  const blocked = new Set(blockedNames)
+  const rows = []
+  const seen = new Set()
+  const seenModels = new Set()
+  const addRow = (item) => {
+    const model = item?.model
+    if (!model || blocked.has(model)) {
+      return
+    }
+    const platform = item.platform || null
+    const key = `${model}::${platform || ''}`
+    if (seen.has(key) || (platform == null && seenModels.has(model))) {
+      return
+    }
+    seen.add(key)
+    seenModels.add(model)
+    rows.push({
+      model,
+      platform,
+      inputTokens: item.inputTokens ?? null,
+      outputTokens: item.outputTokens ?? null,
+      totalTokens: item.totalTokens ?? null,
+      costUsd: item.costUsd ?? null,
+      ampCredits: item.ampCredits ?? null,
+    })
+  }
+  for (const item of journal.spendByModel ?? []) {
+    addRow(item)
+  }
+  for (const session of journal.sessions ?? []) {
+    addRow(session)
+    for (const model of session.models ?? []) {
+      addRow({
+        model,
+        platform: session.platform,
+      })
+    }
+    for (const source of session.sources ?? []) {
+      addRow(source)
+    }
+  }
+  for (const key of PHASE_KEYS) {
+    for (const model of journal.phases?.[key]?.models ?? []) {
+      addRow({ model, platform: null })
+    }
+  }
+  return rows
+}
+
 function buildAgents(journal, handoffAgents) {
   const hasJournalAgents =
     journal.source === 'metrics-file' &&
-    (journal.sessions.length > 0 || phaseHasAgentsOrModels(journal.phases))
+    (journal.sessions.length > 0 ||
+      phaseHasAgentsOrModels(journal.phases) ||
+      spendByModelHasNames(journal))
   if (!hasJournalAgents) {
     return {
       ...handoffAgents,
@@ -513,19 +619,7 @@ function buildAgents(journal, handoffAgents) {
     }
   }
   const blockedModels = new Set([...roles, ...(handoffAgents.roles ?? [])])
-  const models = []
-  for (const session of journal.sessions) {
-    if (session.model && !blockedModels.has(session.model)) {
-      pushUnique(models, session.model)
-    }
-  }
-  for (const key of PHASE_KEYS) {
-    for (const model of journal.phases[key]?.models ?? []) {
-      if (model && !blockedModels.has(model)) {
-        pushUnique(models, model)
-      }
-    }
-  }
+  const models = collectJournalModels(journal, blockedModels)
   let runtime = null
   for (const session of journal.sessions) {
     if (session.runtime) {
@@ -537,8 +631,15 @@ function buildAgents(journal, handoffAgents) {
     runtime = handoffAgents.runtime
   }
   const platforms = []
+  pushUnique(platforms, journal.pending?.platform)
   for (const session of journal.sessions) {
     pushUnique(platforms, session.platform)
+  }
+  for (const source of journal.sessions.flatMap((session) => session.sources ?? [])) {
+    pushUnique(platforms, source.platform)
+  }
+  for (const item of journal.spendByModel ?? []) {
+    pushUnique(platforms, item.platform)
   }
   for (const key of PLATFORM_KEYS) {
     if (platformHasSignal(journal.spendByPlatform[key])) {
@@ -768,6 +869,13 @@ export function metricsToCsv(rows) {
     const journal = row?.journal ?? {}
     const kitTimes = row?.kitTimes ?? {}
     const ampCredits = journal.spendByPlatform?.amp?.ampCredits
+    const spendSources = []
+    const threadIds = []
+    pushUnique(threadIds, journal.pending?.threadId)
+    for (const session of journal.sessions ?? []) {
+      pushUnique(spendSources, session.spendSource)
+      pushUnique(threadIds, session.threadId)
+    }
     lines.push(
       [
         csvCell(row?.repo),
@@ -808,6 +916,11 @@ export function metricsToCsv(rows) {
         csvCell((agents.models ?? []).join('|')),
         csvCell((agents.platforms ?? []).join('|')),
         csvCell(Number.isFinite(ampCredits) ? ampCredits : null),
+        csvCell(journal.pending?.platform),
+        csvCell(journal.pending?.threadId),
+        csvCell(journal.pending?.clientSource),
+        csvCell(spendSources.join('|')),
+        csvCell(threadIds.join('|')),
       ].join(','),
     )
   }
