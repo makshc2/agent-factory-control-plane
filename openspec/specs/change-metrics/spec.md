@@ -131,7 +131,7 @@ change-metrics — requirements merged from change add-change-metrics.
 
 ### Requirement: Екран аналізу змін
 
-Система SHALL надавати екран аналізу (`/analysis/:projectId`) із заголовком «Аналіз змін», посиланням «Борд» на `/`, кнопкою «Оновити», яка повторно завантажує аналіз поточного проєкту маршруту, і кнопкою «Експорт CSV» (неактивна, якщо немає рядків). Порожній реєстр SHALL показувати «Немає зареєстрованих проєктів.» Якщо `projectId` немає в реєстрі — «Проєкт не знайдено. Відкрийте аналіз кнопкою в таблиці борду.» Після завантаження без рядків SHALL показувати «Немає даних для аналізу.» Під час завантаження SHALL показувати «Завантаження аналізу…». Помилки завантаження проєктів SHALL показуватися банером і MUST NOT скасовувати успішні проєкти. Клієнтські фільтри (без HTTP): пошук за repo / `changeName`; вибір `усі` / `активні` / `архів`. Колонки таблиці українською в такому порядку: Проєкт, Зміна, Архів (так/ні та дата, якщо є), Вердикт, Задачі n/m, Цикли рев’ю, Спека, Рев’ю, Apply, Усього, Сесії (`journal.totals.sessions` або `—`), Lead time (`kitTimes.leadMs` або `—`), Токени (`spend.totalTokens` або `—`), Вартість (за вимогою «Резолюція показаної вартості»: billed `$x.xx`, або `≈ $x.xx` з kit `costUsdEstimated`, або `—`), Агенти (runtime і ролі), Моделі (`agents.models` через ` · ` або `—`), Платформи (`agents.platforms` через ` · ` або `—`), Деталі. Якщо `journal.pending` не `null`, біля назви зміни SHALL бути компактний текст «триває»; tooltip цього тексту SHALL містити непорожні `pending.role`, `pending.platform`, `pending.threadId`, `pending.clientSource`. Комірки Спека / Рев’ю / Apply / Усього SHALL показувати kit-тривалість фази / `workMs`, якщо це скінченне число (включно з `0`); інакше git-span відповідної групи (`spec` / `review` / `apply` / `change`). Тривалість SHALL рендеритися наявним українським форматом інтервалу (год/хв/с) або `—`. Tooltip MUST називати джерело показаного числа. Кнопка «Деталі метрик» SHALL відкривати модалку: мета журналу (версія, createdAt, updatedAt, archivedAt, pending включно з platform / threadId / clientSource), totals (сесії, хмарні сесії, робочий час, lead time), таблиці spendByPlatform (з ampCredits і source), spendByModel, phases (агенти, моделі, тривалість, spend), sessions (role, phase, model + session.models, platform, runtime, threadId, spendSource, started/ended, duration, tokens, cost, ampCredits, tasks), sources (id, via, platform, model, tokens, cost, ampCredits, at), git-span і spend-overlay. У таблицях платформ, моделей, фаз, сесій і sources комірка вартості того рядка SHALL показувати скінченне `costUsd` цього запису як `$x.xx`, інакше скінченне `costUsdEstimated` цього запису як `≈ $x.xx`, інакше `—`; колонка Amp credits SHALL лишатися окремою і MUST NOT зливатися з коміркою вартості. Дати в модалці SHALL бути в часовому поясі Києва. Модалка MUST NOT показувати бал 1–5. Живий полер борду MUST NOT бути джерелом цих рядків.
+Система SHALL надавати екран аналізу (`/analysis/:projectId`) із заголовком «Аналіз змін», посиланням «Борд» на `/`, кнопкою «Оновити», яка повторно завантажує аналіз поточного проєкту маршруту, і кнопкою «Експорт CSV» (неактивна, якщо немає рядків). Порожній реєстр SHALL показувати «Немає зареєстрованих проєктів.» Якщо `projectId` немає в реєстрі — «Проєкт не знайдено. Відкрийте аналіз кнопкою в таблиці борду.» Після завантаження без рядків SHALL показувати «Немає даних для аналізу.» Під час завантаження, якщо немає рядків цього проєкту для рендеру, SHALL показувати оверлей за вимогою «Оверлей завантаження аналізу»; система MUST NOT заміняти вже показані картки цього проєкту рядком «Завантаження аналізу…» без оверлею-контракту. Помилки завантаження проєктів SHALL показуватися банером і MUST NOT скасовувати успішні проєкти. Клієнтські фільтри (без HTTP): пошук за repo / `changeName`; вибір `усі` / `активні` / `архів`. Кожна видима зміна SHALL бути карткою (не колонкою широкої таблиці) з підписаними полями українською: Проєкт, Зміна, Архів (так/ні та дата, якщо є), Вердикт, Задачі n/m, Цикли рев’ю, Спека, Рев’ю, Apply, Усього, Сесії (`journal.totals.sessions` або `—`), Lead time (`kitTimes.leadMs` або `—`), Токени (`spend.totalTokens` або `—`), Вартість (за вимогою «Резолюція показаної вартості»: billed `$x.xx`, або `≈ $x.xx` з kit `costUsdEstimated`, або `—`), Моделі (`agents.models` або `—`), дія «Деталі метрик». Агенти (runtime і ролі) і платформи MUST лишатися на сторінці деталей журналу і MUST NOT вимагати окремих колонок широкої таблиці списку. Якщо `journal.pending` не `null`, біля назви зміни SHALL бути компактний текст «триває»; tooltip цього тексту SHALL містити непорожні `pending.role`, `pending.platform`, `pending.threadId`, `pending.clientSource`. Поля Спека / Рев’ю / Apply / Усього SHALL показувати kit-тривалість фази / `workMs`, якщо це скінченне число (включно з `0`); інакше git-span відповідної групи (`spec` / `review` / `apply` / `change`). Тривалість SHALL рендеритися наявним українським форматом інтервалу (год/хв/с) або `—`. Tooltip MUST називати джерело показаного числа. Кнопка або контроль «Деталі метрик» SHALL відкривати full-page маршрут `/analysis/:projectId/metrics/:changeRef` (компонент вмісту може лишатися `AnalysisDetailsModal.vue`): мета журналу (версія, createdAt, updatedAt, archivedAt; pending за вимогою «Приховати порожній pending у деталях метрик»), totals (сесії, хмарні сесії, робочий час, lead time), картки spendByPlatform (з ampCredits і source), spendByModel, phases (агенти, моделі, тривалість, spend), sessions (за вимогою «Картка сесії журналу»), sources (id, via, platform, model, tokens, cost, ampCredits, at), git-span і spend-overlay. У картках платформ, моделей, фаз, сесій і sources вартість того запису SHALL показувати скінченне `costUsd` як `$x.xx`, інакше скінченне `costUsdEstimated` як `≈ $x.xx`, інакше `—`; Amp credits SHALL лишатися окремим полем і MUST NOT зливатися з вартістю. Дати на сторінці деталей SHALL бути в часовому поясі Києва. Сторінка деталей MUST NOT показувати бал 1–5 і MUST NOT бути модальним `role="dialog"`. Живий полер борду MUST NOT бути джерелом цих рядків.
 
 #### Scenario: Відкриття аналізу
 
@@ -146,33 +146,36 @@ change-metrics — requirements merged from change add-change-metrics.
 #### Scenario: Фільтр архіву
 
 - **WHEN** серед рядків є активна і архівна зміна, і оператор обирає «архів»
-- **THEN** видимий лише архівний рядок (рядки)
+- **THEN** видима лише картка (картки) архівної зміни
 
 #### Scenario: Нові колонки журналу
 
 - **WHEN** рядок має `journal.totals.sessions === 7`, `kitTimes.leadMs === 3151528`, `agents.models === ['cursor-grok-4.6']` і `journal.pending === null`
-- **THEN** таблиця показує колонки «Сесії», «Lead time», «Моделі», «Платформи» зі значеннями `7`, українським інтервалом для lead і `cursor-grok-4.6`, і немає тексту «триває»
+- **THEN** картка списку (замість широкої таблиці) показує поля «Сесії», «Lead time», «Моделі» зі значеннями `7`, українським інтервалом для lead і `cursor-grok-4.6`, і немає тексту «триває»
+- **AND** платформи журналу лишаються видимими на сторінці деталей, не як колонка широкої таблиці списку
 
 #### Scenario: Бейдж pending
 
 - **WHEN** `journal.pending` є об’єктом з `role`
-- **THEN** у рядку видно текст «триває»
+- **THEN** у картці зміни видно текст «триває»
 - **AND** tooltip «триває» містить роль pending; якщо є `platform` / `threadId` / `clientSource` — також їх
 
 #### Scenario: Комірка надає перевагу kit
 
 - **WHEN** `kitTimes.phases.spec === 467553` і `spans.spec.durationMs === 7200000`
-- **THEN** комірка Спека показує kit-тривалість (не 2.0 год git) і tooltip вказує час сесій kit
+- **THEN** поле Спека на картці списку показує kit-тривалість (не 2.0 год git) і tooltip вказує час сесій kit
 
 #### Scenario: Розкривні факти якості
 
 - **WHEN** оператор відкриває «Деталі метрик» рядка
 - **THEN** видно `spend.source` (як український підпис джерела витрат), subagents, так/ні для acceptance criteria, `decisionsCount` і ISO-дати git-span, і немає балу 1–5
+- **AND** це full-page маршрут `/analysis/:projectId/metrics/:changeRef`, елемент `role="dialog"` відсутній
 
 #### Scenario: Деталі журналу в модалці
 
 - **WHEN** оператор відкриває «Деталі метрик» для рядка з валідним журналом на 7 сесій
-- **THEN** видно українські підписи журналу (версія, дати, pending включно з платформою / thread / клієнтом), totals, платформи, моделі, фази, сесії (thread, джерело spend, ampCredits), sources, git-span і spend-overlay, і немає балу 1–5
+- **THEN** на full-page сторінці деталей (не `role="dialog"`) видно українські підписи журналу (версія, дати, pending включно з платформою / thread / клієнтом, якщо `pending !== null`), totals, платформи, моделі, фази, сесії (thread, джерело spend, ampCredits), sources, git-span і spend-overlay, і немає балу 1–5
+- **AND** сесії та journal-блоки є картками за вимогами «Картковий макет аналізу та деталей без горизонтального скролу» і «Картка сесії журналу»
 
 #### Scenario: Як рахується час у деталях
 
@@ -184,14 +187,14 @@ change-metrics — requirements merged from change add-change-metrics.
 #### Scenario: Комірка вартості з kit-оцінкою
 
 - **WHEN** рядок має `spend.costUsd === null` і `spend.costUsdEstimated === 0.42`
-- **THEN** колонка «Вартість» таблиці аналізу показує `≈ $0.42`
-- **AND** `title` комірки MUST дорівнювати `оцінка kit (costUsdEstimated), не рахунок Cursor / Amp / Claude` і MUST NOT містити `$3 / 1M`
+- **THEN** поле «Вартість» картки аналізу показує `≈ $0.42`
+- **AND** `title` поля MUST дорівнювати `оцінка kit (costUsdEstimated), не рахунок Cursor / Amp / Claude` і MUST NOT містити `$3 / 1M`
 
 #### Scenario: Оцінка в таблиці платформ деталей
 
 - **WHEN** `journal.spendByPlatform.cursor.costUsd === null` і `journal.spendByPlatform.cursor.costUsdEstimated === 0.18`
-- **THEN** у таблиці платформ деталей рядок `cursor` у колонці Вартість показує `≈ $0.18`
-- **AND** колонка Amp credits цього рядка не містить `0.18`
+- **THEN** у блоці платформ деталей (картка замість широкої таблиці) запис `cursor` у полі Вартість показує `≈ $0.18`
+- **AND** поле Amp credits цього запису не містить `0.18`
 
 ### Requirement: Експорт CSV
 
@@ -231,7 +234,7 @@ change-metrics — requirements merged from change add-change-metrics.
 #### Scenario: CSV оцінки не робить walk журналу
 
 - **WHEN** `spend.costUsdEstimated === null` і `journal.spendByPlatform.cursor.costUsdEstimated === 0.18`
-- **THEN** клітинка `cost_usd_estimated` порожня, а комірка «Вартість» таблиці аналізу є `≈ $0.18`
+- **THEN** клітинка `cost_usd_estimated` порожня, а комірка «Вартість» екрана аналізу є `≈ $0.18`
 
 ### Requirement: Агенти з handoff
 
@@ -255,7 +258,7 @@ change-metrics — requirements merged from change add-change-metrics.
 #### Scenario: Моделі з spendByModel коли session.model порожній
 
 - **WHEN** валідний журнал має сесію `Archiver` з `model: null` і `spendByModel` з `amp-sonnet`
-- **THEN** `agents.models` є `['amp-sonnet']`, таблиця моделей у деталях показує `amp-sonnet`, і `Archiver` не є моделлю
+- **THEN** `agents.models` є `['amp-sonnet']`, картка моделей у деталях показує `amp-sonnet`, і `Archiver` не є моделлю
 
 #### Scenario: Runtime з сесії, інакше handoff
 
@@ -331,7 +334,7 @@ change-metrics — requirements merged from change add-change-metrics.
 
 ### Requirement: Резолюція показаної вартості
 
-Система SHALL резолвити число комірки «Вартість» екрана аналізу та рядка «Вартість» в деталях лише з полів kit `metrics.json`. Billed вартість SHALL бути першим скінченним `costUsd` у такому порядку: `spend.costUsd`, `journal.spend.costUsd`, сума скінченних `journal.spendByPlatform.*.costUsd`, сума скінченних `journal.spendByModel[].costUsd`, сума скінченних `journal.sessions[].costUsd`, сума скінченних `journal.phases.*.costUsd`. Kit-оцінка SHALL бути першим скінченним `costUsdEstimated` у тому самому порядку обходу, читаючи `costUsdEstimated` замість `costUsd`. Якщо billed скінченне — комірка MUST показати `$X.XX` (два знаки) і MUST NOT ставити префікс `≈`. Якщо billed є `null`, а kit-оцінка скінченна — комірка MUST показати `≈ $Y.YY`. Якщо обидва `null` — комірка MUST бути `—` і MUST NOT містити `$0.00`. Система MUST NOT обчислювати долари з токенів локальними ставками. Система MUST NOT брати Amp `ampCredits` як долари і MUST NOT додавати credits у `costUsd` або `costUsdEstimated`. Читання скінченного kit `costUsdEstimated` SHALL вважатися показом поля файлу, не вигадкою борду. Відсутній ключ `costUsdEstimated` у legacy-файлі SHALL бути `null`. Tooltip для `≈` MUST бути рівно `оцінка kit (costUsdEstimated), не рахунок Cursor / Amp / Claude`. Якщо комірка показує billed і `costUsdEstimated` скінченне — tooltip MUST бути рівно `$X.XX billed · ≈ $Y.YY kit` (обидва `toFixed(2)`). Overlay «Вартість» MUST використовувати ті самі правила тексту й tooltip, що й комірка таблиці аналізу. Система MUST NOT викликати Amp, Cursor або Claude API, щоб заповнити ці поля.
+Система SHALL резолвити число комірки «Вартість» екрана аналізу та рядка «Вартість» в деталях лише з полів kit `metrics.json`. Billed вартість SHALL бути першим скінченним `costUsd` у такому порядку: `spend.costUsd`, `journal.spend.costUsd`, сума скінченних `journal.spendByPlatform.*.costUsd`, сума скінченних `journal.spendByModel[].costUsd`, сума скінченних `journal.sessions[].costUsd`, сума скінченних `journal.phases.*.costUsd`. Kit-оцінка SHALL бути першим скінченним `costUsdEstimated` у тому самому порядку обходу, читаючи `costUsdEstimated` замість `costUsd`. Якщо billed скінченне — комірка MUST показати `$X.XX` (два знаки) і MUST NOT ставити префікс `≈`. Якщо billed є `null`, а kit-оцінка скінченна — комірка MUST показати `≈ $Y.YY`. Якщо обидва `null` — комірка MUST бути `—` і MUST NOT містити `$0.00`. Система MUST NOT обчислювати долари з токенів локальними ставками. Система MUST NOT брати Amp `ampCredits` як долари і MUST NOT додавати credits у `costUsd` або `costUsdEstimated`. Читання скінченного kit `costUsdEstimated` SHALL вважатися показом поля файлу, не вигадкою борду. Відсутній ключ `costUsdEstimated` у legacy-файлі SHALL бути `null`. Tooltip для `≈` MUST бути рівно `оцінка kit (costUsdEstimated), не рахунок Cursor / Amp / Claude`. Якщо комірка показує billed і `costUsdEstimated` скінченне — tooltip MUST бути рівно `$X.XX billed · ≈ $Y.YY kit` (обидва `toFixed(2)`). Overlay «Вартість» MUST використовувати ті самі правила тексту й tooltip, що й комірка вартості на екрані аналізу. Система MUST NOT викликати Amp, Cursor або Claude API, щоб заповнити ці поля.
 
 #### Scenario: Billed перемагає оцінку
 
@@ -365,7 +368,7 @@ change-metrics — requirements merged from change add-change-metrics.
 
 - **WHEN** `spend.costUsd` і `spend.costUsdEstimated` є `null`, і `journal.spendByPlatform.amp.ampCredits === 12`
 - **THEN** комірка «Вартість» є `—`
-- **AND** у таблиці платформ деталей колонка Amp credits показує `12`
+- **AND** у картці платформ деталей поле Amp credits показує `12`
 
 #### Scenario: Нуль з файлу видимий як нуль
 
@@ -376,3 +379,122 @@ change-metrics — requirements merged from change add-change-metrics.
 
 - **WHEN** `spend.costUsd === null` і `spend.costUsdEstimated === 0`
 - **THEN** комірка «Вартість» є `≈ $0.00`, а не `—`
+
+### Requirement: Оверлей завантаження аналізу
+
+Система SHALL показувати повносторінковий оверлей завантаження на екранах `/analysis/:projectId` і `/analysis/:projectId/metrics/:changeRef` тоді й лише тоді, коли `loading === true` і на поточному екрані немає що рендерити. «Немає що рендерити» на списку означає: у сторі немає жодного рядка з `projectId` поточного маршруту. На сторінці деталей: немає рядка з цим `projectId` і `changeRef`. Оверлей MUST містити видимий спінер (CSS, не Quasar/`QSpinner`) і текст «Завантаження аналізу…». Якщо для цього `projectId` у Pinia вже є щонайменше один рядок, система MUST NOT очищати ці рядки на старті повторного `loadAnalysis` і MUST NOT показувати оверлей (фонове оновлення дозволене). Перехід на інший `projectId` або перше завантаження без рядків SHALL очистити чужі рядки і показати оверлей, доки не з’явиться вміст або порожній стан. Живий 60-секундний полер борду і рядковий індикатор «оновлюється…» на `/` MUST NOT показувати цей оверлей. Після завершення завантаження без рядків оверлей MUST зникнути, і список SHALL показати «Немає даних для аналізу.» (якщо проєкт у реєстрі).
+
+#### Scenario: Холодне завантаження списку
+
+- **WHEN** оператор відкриває `/analysis/:projectId`, у сторі немає рядків цього проєкту, і `loadAnalysis` ще не завершився
+- **THEN** видно оверлей з текстом «Завантаження аналізу…» і спінером
+- **AND** оверлей MUST NOT бути компонентом Quasar і MUST NOT використовувати `QSpinner`
+
+#### Scenario: Повернення з деталей не спалахує порожнім списком
+
+- **WHEN** у Pinia вже є рядки з `projectId === P`, і оператор переходить зі сторінки деталей назад на `/analysis/P` (або список знову викликає `loadAnalysis` для `P`)
+- **THEN** картки змін `P` лишаються видимими під час запиту
+- **AND** оверлей завантаження аналізу відсутній
+
+#### Scenario: Інший проєкт показує оверлей
+
+- **WHEN** у сторі є рядки проєкту A, і оператор відкриває аналіз проєкту B, для якого рядків ще немає
+- **THEN** рядки проєкту A не лишаються єдиним вмістом екрана B
+- **AND** до завершення завантаження B видно оверлей «Завантаження аналізу…»
+
+#### Scenario: Deep-link деталей без рядків
+
+- **WHEN** оператор відкриває `/analysis/:projectId/metrics/:changeRef` при порожньому сторі, і рядок ще не завантажено
+- **THEN** видно той самий оверлей «Завантаження аналізу…», доки немає рядка або кінцевого стану «Зміну не знайдено.»
+
+#### Scenario: Деталі з уже завантаженим проєктом без оверлею
+
+- **WHEN** у сторі вже є рядки цього `projectId`, і оператор відкриває деталі зміни цього проєкту
+- **THEN** оверлей відсутній
+- **AND** система MUST NOT повторно викликати важкий fetch аналізу лише через навігацію на деталі
+
+#### Scenario: Полер борду не показує оверлей аналізу
+
+- **WHEN** на `/` спрацьовує 60-секундний цикл полера, і рядок проєкту показує «оновлюється…»
+- **THEN** оверлей «Завантаження аналізу…» відсутній
+- **AND** жива таблиця борду лишається видимою
+
+#### Scenario: Порожній результат після завантаження
+
+- **WHEN** `loadAnalysis` завершився успішно, `loading === false`, проєкт є в реєстрі, і рядків немає
+- **THEN** оверлей відсутній
+- **AND** екран показує «Немає даних для аналізу.»
+
+### Requirement: Картковий макет аналізу та деталей без горизонтального скролу
+
+Екран списку аналізу і сторінка деталей метрик SHALL показувати вміст стеком карток (блок під блоком), а не широкою таблицею з горизонтальним скролом. Контейнери журналу MUST NOT мати `overflow-x: auto` у поєднанні з `white-space: nowrap` і `width: max-content` (чинні класи `.analysis-journal-scroll` / `.analysis-journal-table` MUST NOT лишати цей контракт). Довгі імена змін, ролей, моделей і репозиторіїв SHALL переноситися всередині картки (`overflow-wrap: anywhere` або еквівалент) і MUST NOT розсувати сторінку по горизонталі. Зведення показників деталей (колишні колонки «Показник» / «Значення») SHALL бути підписаними рядками в одній картці, не двоколонковою таблицею на всю ширину контенту. Блоки платформ, моделей, фаз і sources SHALL бути стеком карток або підписаних блоків, якщо табличний рядок інакше створює overflow-x. Порожній набір моделей / сесій / sources SHALL показувати «немає» в межах блоку, не приховуючи заголовок секції. Клас `.board-table-wrap` на списку аналізу MUST NOT лишатися обгорткою, що дає горизонтальний скрол списку змін.
+
+#### Scenario: Список змін без горизонтального скролу
+
+- **WHEN** оператор відкриває `/analysis/:projectId` з щонайменше однією зміною, і viewport вужчий за суму колишніх колонок таблиці
+- **THEN** кожна зміна є окремою карткою в вертикальному стеку
+- **AND** обгортка списку MUST NOT мати горизонтальний скрол через широку таблицю
+
+#### Scenario: Довга назва переноситься в картці списку
+
+- **WHEN** `changeName` довший за ширину картки
+- **THEN** назва переноситься всередині картки і MUST NOT змушувати `document` скролитись по горизонталі через `nowrap`
+
+#### Scenario: Зведення деталей не є широкою таблицею Показник/Значення
+
+- **WHEN** оператор відкриває сторінку деталей рядка з валідним журналом
+- **THEN** мета журналу, totals, spend-overlay і git-span показані як підписані рядки в картці (картках)
+- **AND** немає таблиці з заголовками колонок «Показник» і «Значення» як єдиного макета зведення
+
+#### Scenario: Journal-блоки без overflow-x
+
+- **WHEN** на сторінці деталей є платформи, моделі, фази, сесії та sources
+- **THEN** жоден із цих блоків не обгорнутий у контейнер з контрактом `.analysis-journal-scroll` (`overflow-x: auto` + таблиця `width: max-content` + `nowrap`)
+- **AND** довгі значення переносяться всередині картки
+
+### Requirement: Картка сесії журналу
+
+Кожна сесія `journal.sessions[]` на сторінці деталей SHALL рендеритися окремою карткою зі стеком полів у такому порядку: роль (з переносом довгого рядка) і фаза; рядок `model · platform · env` (порожнє поле → `—` за вимогою чесності); рядок початок → кінець · тривалість (дати в поясі Києва, тривалість чинним українським форматом); рядок токени · вартість · Amp credits · джерело spend; `threadId` і `tasks` SHALL з’являтися лише якщо відповідне значення непорожнє (не `null` і не `''`). Вартість сесії MUST слідувати чинній резолюції billed `$x.xx` / `≈ $x.xx` / `—`; Amp credits MUST лишатися окремим числом і MUST NOT зливатися з вартістю. Порожній масив сесій SHALL показувати «немає» в секції сесій.
+
+#### Scenario: Поля заповненої сесії
+
+- **WHEN** сесія має `role: 'Implementer'`, `phase: 'apply'`, `model: 'glm-5.2'`, `platform: 'amp'`, `runtime: 'local'`, непорожні `startedAt`/`endedAt`, скінченні токени, `spendSource: 'adapter'`, `threadId` і `tasks`
+- **THEN** картка показує роль з переносом, фазу, рядок моделі/платформи/середовища, інтервал часу з тривалістю, токени, вартість, Amp credits, підпис джерела spend, thread і задачі
+
+#### Scenario: Thread і tasks ховаються коли порожні
+
+- **WHEN** у сесії `threadId` є `null` і `tasks` є `null` або `''`
+- **THEN** картка MUST NOT містити окремі рядки thread і задач
+- **AND** роль, фаза, час і spend-рядок лишаються
+
+#### Scenario: Довга роль переноситься
+
+- **WHEN** `session.role` є довгим рядком Closed role плюс опис фази (понад 80 символів)
+- **THEN** текст ролі переноситься всередині картки і MUST NOT вимагати горизонтального скролу сторінки
+
+#### Scenario: Немає сесій
+
+- **WHEN** `journal.sessions` є `[]`
+- **THEN** секція сесій показує «немає» і MUST NOT малювати порожню широку таблицю на 14 колонок
+
+### Requirement: Приховати порожній pending у деталях метрик
+
+На сторінці деталей метрик система SHALL приховувати блок pending (статус, роль, початок, платформа, thread, клієнт), коли `journal.pending === null`. Система MUST NOT показувати рядок «немає» плюс п’ять значень `—` для порожнього pending. Коли `journal.pending` є об’єктом, блок SHALL бути видимим і показувати непорожні `role`, `startedAt` (Київ), `platform`, `threadId`, `clientSource` (порожнє поле об’єкта → `—` лише всередині видимого блоку). Парсер MUST лишити `pending` у моделі; CSV MUST лишити колонки `pending_role`, `pending_platform`, `pending_thread_id`, `pending_client_source`; на списку аналізу бейдж «триває» MUST лишитися, якщо `pending !== null`. Система MUST NOT видаляти фічу pending.
+
+#### Scenario: Порожній pending не малює тире в деталях
+
+- **WHEN** оператор відкриває деталі рядка з `journal.pending === null`
+- **THEN** текст деталей MUST NOT містити підписи `Журнал · статус`, `Журнал · роль pending`, `Журнал · pending з`, `Журнал · pending платформа`, `Журнал · pending thread`, `Журнал · pending клієнт`
+- **AND** інші підписи журналу (джерело, версія, дати, totals) лишаються
+
+#### Scenario: Відкритий pending видимий у деталях
+
+- **WHEN** `journal.pending` є об’єктом з `role: 'Spec Reviewer'`, `platform: 'amp'`, `threadId`, `clientSource: 'amp-threads-list'`
+- **THEN** у деталях видно ці поля pending (включно з клієнтом і thread)
+- **AND** на картці списку цієї зміни є текст «триває»
+
+#### Scenario: CSV і парсер не втрачають pending
+
+- **WHEN** `journal.pending === null` і оператор експортує CSV
+- **THEN** заголовки `pending_role,pending_platform,pending_thread_id,pending_client_source` присутні, відповідні клітинки порожні
+- **AND** модель рядка все ще має `journal.pending === null`, а не відсутній ключ через видалення фічі

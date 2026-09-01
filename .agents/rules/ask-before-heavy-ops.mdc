@@ -1,34 +1,38 @@
 ---
-description: Tests allowed; keep laptop load low; do not skip OpenSpec for missing tests
+description: Tests allowed on every project; measure laptop CPU/RAM/load first and throttle so the machine does not freeze
 alwaysApply: true
 ---
 
-# Обережні тести, контроль навантаження
+# Тести дозволені; обов’язковий контроль ресурсів ноутбука
 
-Тести запускати можна без окремого «запусти тести». Ноутбук легко перевантажити — тримай навантаження низьким.
+Заборону тестів скасовано на всіх проєктах. Не питай «чи запускати тести». Перед будь-яким тестовим процесом виміряй навантаження і підлаштуй прогін, щоб не покласти ноутбук.
 
-## Як ганяти тести
+## Перед запуском (Linux)
 
-- Один репозиторій, одна команда. Не паралелити сьюти і важкі процеси.
-- Локальний бінар після `cd`: `./node_modules/.bin/vitest run …` або `npm test`. Не `npx vitest`.
-- Не лишати тести / watch / coverage у фоні. Якщо зависло — зупинити, не плодити другий процес.
-- Спочатку вузький прогін змінених spec. Повний `npm test` — лише коли треба CI-паритет і вузький уже зелений.
-- На цьому ноутбуці: `--maxWorkers=1` (або `fileParallelism: false`), якщо сьюта важка.
+Одна коротка команда, без тестів:
 
-## Питай і чекай «так» лише для важкого
+```bash
+nproc; awk '{print $1,$2,$3}' /proc/loadavg; awk '/MemAvailable/ {printf "%.0f\n", $2/1024}' /proc/meminfo
+```
 
-- увесь монорепо / `test:watch` / coverage
-- Playwright / Cypress
-- production `npm run build` з довгим watch
-- `npm install` / `npx`, який тягне пакети
-- Docker, compose, k8s, увесь kit `test/*.test.js`
-- кілька важких команд одночасно
+- `nproc` — ядра
+- loadavg 1m — поточне навантаження
+- MemAvailable MiB — вільна RAM
 
-## OpenSpec
+## Ліміти
 
-- Не блокувати apply/archive лише тому, що локальні тести не крутились у CI. Пропуск тестів ≠ стоп фази, якщо оператор просить archive / `--sync`.
-- Не ставити change в Blocked через незапущені тести.
+- MemAvailable < 1500 MiB або loadavg 1m ≥ nproc → тести НЕ стартувати. Написати, що ноутбук зайнятий.
+- MemAvailable < 3000 MiB або loadavg 1m ≥ nproc*0.7 → лише вузький spec, `--maxWorkers=1`, один процес.
+- Інакше можна ширший прогін цього репо; на цьому ноутбуці все одно `--maxWorkers=1` за замовчуванням.
+- Повний `npm test` / coverage / Playwright / watch — лише якщо MemAvailable ≥ 3000 і loadavg 1m < nproc*0.5; інакше вузький або стоп.
+- Ніколи: другий тестовий процес, фон, паралельні сьюти, `npx vitest`.
 
-## Можна без питання
+## Як запускати
 
-Читання файлів, точковий lint, git status/diff/log, короткі ls, вузький vitest зміненого spec.
+- `cd` у репо → `./node_modules/.bin/vitest run <spec> --maxWorkers=1`
+- Якщо vitest зависає або RAM падає — зупинити PID, не плодити ще один.
+- OpenSpec apply/archive не блокувати: вузький прогін якщо ресурси ок; якщо стоп по RAM — сказати, фазу не ставити в Blocked.
+
+## Можна без вимірювання
+
+Читання файлів, точковий eslint, git status/diff/log, короткі ls.

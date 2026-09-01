@@ -2,8 +2,8 @@
   "version": 1,
   "change": "polish-analysis-details-layout",
   "createdAt": "2026-09-01T07:25:38.438Z",
-  "updatedAt": "2026-09-01T08:02:50.371Z",
-  "archivedAt": null,
+  "updatedAt": "2026-09-01T08:15:02.000Z",
+  "archivedAt": "2026-09-01T08:15:02.000Z",
   "spend": {
     "inputTokens": 1722673,
     "outputTokens": 26566,
@@ -63,7 +63,7 @@
     }
   ],
   "totals": {
-    "sessions": 4,
+    "sessions": 5,
     "durationMs": 1883185,
     "leadTimeMs": 1969405,
     "cloudSessions": 0
@@ -110,6 +110,21 @@
       "costUsdEstimated": 1.3636,
       "agents": [
         "Implementer (conductor) — apply complete, 15/15"
+      ],
+      "models": [
+        "cursor-grok-4.6"
+      ]
+    },
+    "archive": {
+      "sessions": 1,
+      "durationMs": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "costUsdEstimated": null,
+      "agents": [
+        "Archiver"
       ],
       "models": [
         "cursor-grok-4.6"
@@ -245,13 +260,28 @@
       "ampCredits": null,
       "costUsdEstimated": 1.3636,
       "spendSource": "adapter"
+    },
+    {
+      "startedAt": "2026-09-01T08:15:02.000Z",
+      "endedAt": "2026-09-01T08:15:02.000Z",
+      "durationMs": null,
+      "role": "Archiver",
+      "phase": "archive",
+      "runtime": "local",
+      "agentId": "none",
+      "model": "cursor-grok-4.6",
+      "platform": "cursor",
+      "threadId": null,
+      "tasks": "15/15",
+      "sources": [],
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "ampCredits": null,
+      "costUsdEstimated": null,
+      "spendSource": "unreported"
     }
   ],
-  "pending": {
-    "startedAt": "2026-09-01T08:02:50.371Z",
-    "role": "Archiver",
-    "platform": "cursor",
-    "threadId": null,
-    "clientSource": "cursor-env"
-  }
+  "pending": null
 }
