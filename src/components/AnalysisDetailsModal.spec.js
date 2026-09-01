@@ -192,7 +192,7 @@ describe('AnalysisDetailsModal', () => {
     expect(wrapper.text()).toContain('Kit · робочий час')
     expect(wrapper.text()).toContain('Kit · lead time')
     expect(wrapper.text()).toContain('Amp credits')
-    expect(wrapper.text()).toContain('Роль')
+    expect(wrapper.text()).toContain('Ролі')
     expect(wrapper.text()).toContain('Фаза')
     expect(wrapper.text()).toContain('Джерело витрат')
     expect(wrapper.text()).toContain('невідомо')
