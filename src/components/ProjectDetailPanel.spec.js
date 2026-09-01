@@ -116,4 +116,36 @@ describe('ProjectDetailPanel', () => {
 
     expect(wrapper.emitted('refresh-details')).toEqual([[]])
   })
+
+  it('renders change card, APPROVE badge, task checkbox, and Handoff', () => {
+    mountPanel({
+      headerChanges: [
+        {
+          changeName: 'add-login',
+          nextRole: 'Implementer',
+          tasksDone: 1,
+          tasksTotal: 2,
+          verdict: 'APPROVE',
+        },
+      ],
+      details: {
+        ...emptyDetails,
+        changes: {
+          'add-login': {
+            ...emptyDetails.changes['add-login'],
+            taskList: [
+              { text: 'Add login form', done: true },
+              { text: 'Wire OAuth', done: false },
+            ],
+          },
+        },
+      },
+    })
+
+    expect(wrapper.find('.board-detail-card').exists()).toBe(true)
+    expect(wrapper.find('.badge-verdict-approve').exists()).toBe(true)
+    expect(wrapper.find('.badge-verdict-approve').text()).toBe('APPROVE')
+    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(true)
+    expect(wrapper.findAll('h4').map((heading) => heading.text())).toContain('Handoff')
+  })
 })

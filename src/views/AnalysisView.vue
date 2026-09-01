@@ -1,6 +1,7 @@
 <script setup>
 import { computed, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import AnalysisLoadingOverlay from '@/components/AnalysisLoadingOverlay.vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useRegistryStore } from '@/stores/registry'
 import { useToastsStore } from '@/stores/toasts'
@@ -26,6 +27,13 @@ const archiveFilter = shallowRef('')
 
 const project = computed(
   () => registryStore.projects.find((item) => item.id === route.params.projectId) ?? null,
+)
+
+const showOverlay = computed(
+  () =>
+    analysisStore.loading &&
+    project.value != null &&
+    !analysisStore.rows.some((row) => row.projectId === project.value.id),
 )
 
 const filteredRows = computed(() => {
@@ -224,9 +232,7 @@ watch(
         Борд
       </RouterLink>
     </div>
-    <p v-if="analysisStore.loading">
-      Завантаження аналізу…
-    </p>
+    <AnalysisLoadingOverlay :visible="showOverlay" />
     <p
       v-for="(item, projectId) in analysisStore.error"
       :key="projectId"
@@ -264,184 +270,113 @@ watch(
     <p v-else-if="analysisStore.rows.length > 0 && filteredRows.length === 0">
       Немає рядків за фільтром.
     </p>
-    <div
-      v-else-if="filteredRows.length > 0"
-      class="board-table-wrap"
-    >
-      <table class="analysis-table">
-        <colgroup>
-          <col class="analysis-table__col-repo">
-          <col class="analysis-table__col-change">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-num">
-          <col class="analysis-table__col-models">
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Проєкт</th>
-            <th>Зміна</th>
-            <th class="analysis-table__num">
-              Архів
-            </th>
-            <th class="analysis-table__num">
-              Вердикт
-            </th>
-            <th class="analysis-table__num">
-              Задачі
-            </th>
-            <th class="analysis-table__num">
-              Цикли рев’ю
-            </th>
-            <th class="analysis-table__num">
-              Спека
-            </th>
-            <th class="analysis-table__num">
-              Рев’ю
-            </th>
-            <th class="analysis-table__num">
-              Apply
-            </th>
-            <th class="analysis-table__num">
-              Усього
-            </th>
-            <th class="analysis-table__num">
-              Сесії
-            </th>
-            <th class="analysis-table__num">
-              Lead time
-            </th>
-            <th class="analysis-table__num">
-              Токени
-            </th>
-            <th class="analysis-table__num">
-              Вартість
-            </th>
-            <th class="analysis-table__stack-cell">
-              Моделі
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in filteredRows"
-            :key="rowKey(row)"
+    <div v-else-if="filteredRows.length > 0">
+      <article
+        v-for="row in filteredRows"
+        :key="rowKey(row)"
+        class="analysis-change-card"
+      >
+        <div class="analysis-change-card__row">
+          <span>Проєкт</span>
+          <span :title="row.repo">{{ projectLabel(row) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Зміна</span>
+          <span>
+            {{ row.changeName }}
+            <span
+              v-if="row.journal?.pending != null"
+              class="analysis-pending"
+              :title="pendingTitle(row)"
+            >триває</span>
+          </span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Архів</span>
+          <span>{{ archiveLabel(row) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Вердикт</span>
+          <span>{{ row.verdict ?? DASH }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Задачі</span>
+          <span>{{ `${row.tasksDone}/${row.tasksTotal}` }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Цикли рев’ю</span>
+          <span>{{ row.reviewLoops }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Спека</span>
+          <span
+            :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.spec, row.spans?.spec), row.spans?.spec)"
+          >{{ durationLabel(preferDuration(row.kitTimes?.phases?.spec, row.spans?.spec).durationMs) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Рев’ю</span>
+          <span
+            :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.review, row.spans?.review), row.spans?.review)"
+          >{{ durationLabel(preferDuration(row.kitTimes?.phases?.review, row.spans?.review).durationMs) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Apply</span>
+          <span
+            :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.apply, row.spans?.apply), row.spans?.apply)"
+          >{{ durationLabel(preferDuration(row.kitTimes?.phases?.apply, row.spans?.apply).durationMs) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Усього</span>
+          <span
+            :title="preferredDurationTitle(preferDuration(row.kitTimes?.workMs, row.spans?.change), row.spans?.change)"
+          >{{ durationLabel(preferDuration(row.kitTimes?.workMs, row.spans?.change).durationMs) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Сесії</span>
+          <span>{{ sessionsLabel(row) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Lead time</span>
+          <span>{{ durationLabel(row.kitTimes?.leadMs) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Токени</span>
+          <span>{{ tokensLabel(row) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Вартість</span>
+          <span :title="costTitle(row)">{{ costLabel(row) }}</span>
+        </div>
+        <div class="analysis-change-card__row">
+          <span>Моделі</span>
+          <div v-if="modelNames(row).length > 0">
+            <div
+              v-for="name in modelNames(row)"
+              :key="name"
+            >
+              {{ name }}
+            </div>
+          </div>
+          <span v-else>{{ DASH }}</span>
+        </div>
+        <button
+          type="button"
+          aria-label="Деталі метрик"
+          title="Деталі метрик"
+          @click="openDetails(row)"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+            focusable="false"
           >
-            <td class="analysis-table__clip analysis-table__clip--repo">
-              <span
-                class="analysis-table__ellipsis"
-                :title="row.repo"
-              >{{ projectLabel(row) }}</span>
-            </td>
-            <td class="analysis-table__clip analysis-table__clip--change">
-              <span
-                class="analysis-table__ellipsis"
-                :title="row.changeName"
-              >
-                {{ row.changeName }}
-                <span
-                  v-if="row.journal?.pending != null"
-                  class="analysis-pending"
-                  :title="pendingTitle(row)"
-                >триває</span>
-              </span>
-            </td>
-            <td class="analysis-table__num">
-              {{ archiveLabel(row) }}
-            </td>
-            <td class="analysis-table__num">
-              {{ row.verdict ?? DASH }}
-            </td>
-            <td class="analysis-table__num">
-              {{ `${row.tasksDone}/${row.tasksTotal}` }}
-            </td>
-            <td class="analysis-table__num">
-              {{ row.reviewLoops }}
-            </td>
-            <td
-              class="analysis-table__num"
-              :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.spec, row.spans?.spec), row.spans?.spec)"
-            >
-              {{ durationLabel(preferDuration(row.kitTimes?.phases?.spec, row.spans?.spec).durationMs) }}
-            </td>
-            <td
-              class="analysis-table__num"
-              :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.review, row.spans?.review), row.spans?.review)"
-            >
-              {{ durationLabel(preferDuration(row.kitTimes?.phases?.review, row.spans?.review).durationMs) }}
-            </td>
-            <td
-              class="analysis-table__num"
-              :title="preferredDurationTitle(preferDuration(row.kitTimes?.phases?.apply, row.spans?.apply), row.spans?.apply)"
-            >
-              {{ durationLabel(preferDuration(row.kitTimes?.phases?.apply, row.spans?.apply).durationMs) }}
-            </td>
-            <td
-              class="analysis-table__num"
-              :title="preferredDurationTitle(preferDuration(row.kitTimes?.workMs, row.spans?.change), row.spans?.change)"
-            >
-              {{ durationLabel(preferDuration(row.kitTimes?.workMs, row.spans?.change).durationMs) }}
-            </td>
-            <td class="analysis-table__num">
-              {{ sessionsLabel(row) }}
-            </td>
-            <td class="analysis-table__num">
-              {{ durationLabel(row.kitTimes?.leadMs) }}
-            </td>
-            <td class="analysis-table__num">
-              {{ tokensLabel(row) }}
-            </td>
-            <td
-              class="analysis-table__num"
-              :title="costTitle(row)"
-            >
-              {{ costLabel(row) }}
-            </td>
-            <td class="analysis-table__stack-cell">
-              <div class="analysis-table__models-row">
-                <div
-                  v-if="modelNames(row).length > 0"
-                  class="analysis-table__stack"
-                >
-                  <span
-                    v-for="name in modelNames(row)"
-                    :key="name"
-                    class="analysis-table__stack-item analysis-table__stack-item--model"
-                  >{{ name }}</span>
-                </div>
-                <span v-else>{{ DASH }}</span>
-                <button
-                  type="button"
-                  class="analysis-table__icon-btn"
-                  aria-label="Деталі метрик"
-                  title="Деталі метрик"
-                  @click="openDetails(row)"
-                >
-                  <svg
-                    viewBox="0 0 20 20"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path
-                      fill="currentColor"
-                      d="M4 4h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v8h10V6H5Zm2 1.5h6v1.25H7V7.5Zm0 2.5h6v1.25H7V10Zm0 2.5h4v1.25H7V12.5Z"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            <path
+              fill="currentColor"
+              d="M4 4h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v8h10V6H5Zm2 1.5h6v1.25H7V7.5Zm0 2.5h6v1.25H7V10Zm0 2.5h4v1.25H7V12.5Z"
+            />
+          </svg>
+        </button>
+      </article>
     </div>
   </main>
 </template>

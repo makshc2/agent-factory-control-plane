@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { getProviderClient } from '@/api/providers'
+import { useAnalysisStore } from '@/stores/analysis'
 import { useRegistryStore } from '@/stores/registry'
+import { analysisChangeRef } from '@/utils/changeMetrics'
 import AnalysisDetailsView from './AnalysisDetailsView.vue'
 import AnalysisView from './AnalysisView.vue'
 
@@ -23,7 +26,7 @@ const projectData = {
   branch: 'main',
 }
 
-function createClient() {
+function createClient(overrides = {}) {
   return {
     listChanges: vi.fn().mockResolvedValue(['add-login']),
     listArchivedChanges: vi.fn().mockResolvedValue([]),
@@ -42,6 +45,47 @@ function createClient() {
       files: ['tasks.md', 'review.md'],
       dirs: [],
     }),
+    ...overrides,
+  }
+}
+
+function seedActiveRow(projectId, changeName = 'add-login') {
+  return {
+    projectId,
+    changeName,
+    archived: false,
+    archiveFolder: null,
+    archivedAt: null,
+    hasAcceptanceCriteria: false,
+    decisionsCount: 0,
+    spend: {
+      source: 'unknown',
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      costUsd: null,
+    },
+    agents: {
+      runtime: null,
+      roles: [],
+      subagents: [],
+    },
+    spans: {
+      spec: {},
+      review: {},
+      apply: {},
+      change: {},
+    },
+    journal: {
+      source: 'unknown',
+      pending: null,
+      totals: {},
+      sessions: [],
+      spendByPlatform: {},
+      spendByModel: [],
+      phases: {},
+    },
+    kitTimes: {},
   }
 }
 
@@ -102,5 +146,52 @@ describe('AnalysisDetailsView', () => {
 
     expect(router.currentRoute.value.name).toBe('analysis')
     expect(router.currentRoute.value.params.projectId).toBe(project.id)
+  })
+
+  it('shows loading overlay on a cold deep-link while listChanges is pending', async () => {
+    let resolveList
+    const deferred = new Promise((resolve) => {
+      resolveList = resolve
+    })
+    const client = createClient({
+      listChanges: vi.fn(() => deferred),
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    const project = useRegistryStore().projects[0]
+    await mountDetails(project.id, 'c:add-login')
+    await nextTick()
+
+    const overlay = wrapper.find('.analysis-loading-overlay')
+    expect(overlay.exists()).toBe(true)
+    expect(overlay.text()).toContain('Завантаження аналізу…')
+    expect(wrapper.find('.analysis-details').exists()).toBe(false)
+
+    resolveList(['add-login'])
+    await flushPromises()
+  })
+
+  it('does not show overlay when analysis rows already exist', async () => {
+    let resolveList
+    const deferred = new Promise((resolve) => {
+      resolveList = resolve
+    })
+    const client = createClient({
+      listChanges: vi.fn(() => deferred),
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    const project = useRegistryStore().projects[0]
+    const seededRow = seedActiveRow(project.id, 'add-login')
+    useAnalysisStore().rows.push(seededRow)
+    await mountDetails(project.id, analysisChangeRef(seededRow))
+    await nextTick()
+
+    expect(wrapper.find('.analysis-loading-overlay').exists()).toBe(false)
+    expect(wrapper.find('.analysis-details').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Джерело витрат')
+    expect(client.listChanges).not.toHaveBeenCalled()
+
+    resolveList(['add-login'])
   })
 })

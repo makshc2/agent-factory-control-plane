@@ -118,14 +118,36 @@ function createJournalClient(journalOverrides = {}) {
   })
 }
 
-function columnText(wrapper, header, rowIndex = 0) {
-  const index = wrapper.findAll('thead th').findIndex((th) => th.text() === header)
-  return wrapper.findAll('tbody tr')[rowIndex].findAll('td')[index].text()
+function analysisCard(wrapper, cardIndex = 0) {
+  return wrapper.findAll('.analysis-change-card')[cardIndex]
 }
 
-function columnTitle(wrapper, header, rowIndex = 0) {
-  const index = wrapper.findAll('thead th').findIndex((th) => th.text() === header)
-  return wrapper.findAll('tbody tr')[rowIndex].findAll('td')[index].attributes('title') ?? ''
+function labeledRow(wrapper, label, cardIndex = 0) {
+  return analysisCard(wrapper, cardIndex)
+    .findAll('.analysis-change-card__row')
+    .find((row) => {
+      const first = row.find('span')
+      return first.exists() && first.text() === label
+    })
+}
+
+function columnText(wrapper, label, cardIndex = 0) {
+  const row = labeledRow(wrapper, label, cardIndex)
+  const spans = row.findAll('span')
+  if (spans.length > 1) {
+    return spans[1].text()
+  }
+  const value = row.element.children[1]
+  return (value?.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
+function columnTitle(wrapper, label, cardIndex = 0) {
+  const row = labeledRow(wrapper, label, cardIndex)
+  const spans = row.findAll('span')
+  if (spans.length > 1) {
+    return spans[1].attributes('title') ?? ''
+  }
+  return row.element.children[1]?.getAttribute?.('title') ?? ''
 }
 
 async function createTestRouter(projectId) {
@@ -234,6 +256,7 @@ describe('AnalysisView', () => {
     await mountAnalysis(useRegistryStore().projects[0].id)
     await flushPromises()
 
+    expect(wrapper.findAll('.analysis-change-card')).toHaveLength(2)
     expect(wrapper.text()).toContain('add-login')
     expect(wrapper.text()).toContain('add-factory-board')
 
@@ -241,6 +264,7 @@ describe('AnalysisView', () => {
     await nextTick()
     await flushPromises()
 
+    expect(wrapper.findAll('.analysis-change-card')).toHaveLength(1)
     expect(wrapper.text()).toContain('add-factory-board')
     expect(wrapper.text()).not.toContain('add-login')
   })
@@ -277,6 +301,7 @@ describe('AnalysisView', () => {
     await flushPromises()
 
     const text = wrapper.text()
+    expect(wrapper.find('.analysis-change-card').exists()).toBe(true)
     expect(text).toContain('Сесії')
     expect(text).toContain('Lead time')
     expect(text).toContain('Моделі')
@@ -366,15 +391,13 @@ describe('AnalysisView', () => {
     await mountAnalysis(useRegistryStore().projects[0].id)
     await flushPromises()
 
-    const modelsIndex = wrapper.findAll('thead th').findIndex((th) => th.text() === 'Моделі')
-    const modelsTd = wrapper.findAll('tbody tr')[0].findAll('td')[modelsIndex]
-    expect(modelsTd.text()).toContain('cursor-grok-4.6')
-    expect(modelsTd.text()).not.toContain('Explorer')
-    expect(modelsTd.text()).not.toContain('Architect')
-    expect(modelsTd.text()).not.toContain('discovery')
-    expect(modelsTd.classes()).toContain('analysis-table__stack-cell')
-    expect(wrapper.findAll('thead th').some((th) => th.text() === 'Агенти')).toBe(false)
-    expect(wrapper.findAll('thead th').some((th) => th.text() === 'Платформи')).toBe(false)
+    const modelsText = columnText(wrapper, 'Моделі')
+    expect(modelsText).toContain('cursor-grok-4.6')
+    expect(modelsText).not.toContain('Explorer')
+    expect(modelsText).not.toContain('Architect')
+    expect(modelsText).not.toContain('discovery')
+    expect(wrapper.text()).not.toContain('Агенти')
+    expect(wrapper.text()).not.toContain('Платформи')
   })
 
   it('does not toast after CSV export', async () => {
@@ -454,5 +477,15 @@ describe('AnalysisView', () => {
 
     expect(columnText(wrapper, 'Вартість')).toBe('—')
     expect(columnText(wrapper, 'Вартість')).not.toContain('$')
+  })
+
+  it('hides the loading overlay after change cards are loaded', async () => {
+    getProviderClient.mockReturnValue(createClient())
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(wrapper.findAll('.analysis-change-card').length).toBeGreaterThan(0)
+    expect(wrapper.find('.analysis-loading-overlay').exists()).toBe(false)
   })
 })

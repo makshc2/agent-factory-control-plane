@@ -154,6 +154,24 @@ const row = {
   },
 }
 
+function firstRowLabel(card) {
+  return card.find('.analysis-journal-card__row').findAll('span')[0]?.text() ?? ''
+}
+
+function labeledValue(card, label) {
+  for (const rowEl of card.findAll('.analysis-journal-card__row')) {
+    const spans = rowEl.findAll('span')
+    if (spans[0]?.text() === label) {
+      return spans[1]?.text() ?? ''
+    }
+  }
+  return ''
+}
+
+function journalCards(wrapper, label) {
+  return wrapper.findAll('.analysis-journal-card').filter((card) => firstRowLabel(card) === label)
+}
+
 describe('AnalysisDetailsModal', () => {
   let wrapper
 
@@ -161,7 +179,7 @@ describe('AnalysisDetailsModal', () => {
     wrapper?.unmount()
   })
 
-  it('renders a Ukrainian table with Kyiv dates and short durations', async () => {
+  it('renders Ukrainian metric cards with Kyiv dates and short durations', async () => {
     wrapper = mount(AnalysisDetailsModal, {
       attachTo: document.body,
       props: { row },
@@ -189,7 +207,9 @@ describe('AnalysisDetailsModal', () => {
     expect(wrapper.text()).not.toContain('1–5')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     expect(wrapper.find('.analysis-details').exists()).toBe(true)
-    expect(wrapper.findAll('.analysis-journal-scroll')).toHaveLength(5)
+    expect(wrapper.find('.analysis-metric-card').exists()).toBe(true)
+    expect(wrapper.findAll('.analysis-session-card')).toHaveLength(2)
+    expect(journalCards(wrapper, 'Платформа')).toHaveLength(3)
     expect(wrapper.text()).toContain('Як рахується час')
     expect(wrapper.text()).toContain('час сесій kit (metrics.json), не інтервал комітів')
     expect(wrapper.text()).not.toContain('інтервал комітів файлів, не wall-clock сесії')
@@ -202,11 +222,10 @@ describe('AnalysisDetailsModal', () => {
       props: { row },
     })
 
-    const tables = wrapper.findAll('.analysis-journal-table')
-    const modelsTable = tables[1]
-    expect(modelsTable.text()).toContain('Модель')
-    expect(modelsTable.text()).toContain('cursor-grok-4.6')
-    expect(modelsTable.text()).not.toContain('немає')
+    const modelCards = journalCards(wrapper, 'Модель')
+    expect(modelCards.length).toBeGreaterThan(0)
+    expect(modelCards.some((card) => labeledValue(card, 'Модель') === 'cursor-grok-4.6')).toBe(true)
+    expect(modelCards.every((card) => !card.text().includes('немає'))).toBe(true)
     expect(wrapper.text()).toContain('Architect')
     expect(wrapper.text()).toContain('Implementer')
   })
@@ -279,6 +298,12 @@ describe('AnalysisDetailsModal', () => {
     expect(text).toContain('Kit · робочий час')
     expect(text).toContain('Kit · lead time')
     expect(text).toContain('—')
+    expect(text).not.toContain('Журнал · статус')
+    expect(text).not.toContain('Журнал · роль pending')
+    expect(text).not.toContain('Журнал · pending з')
+    expect(text).not.toContain('Журнал · pending платформа')
+    expect(text).not.toContain('Журнал · pending thread')
+    expect(text).not.toContain('Журнал · pending клієнт')
     expect(text).not.toContain('$0.00')
     expect(text).not.toContain('файл metrics.json')
     expect(text).toContain('інтервал комітів файлів, не wall-clock сесії')
@@ -336,6 +361,9 @@ describe('AnalysisDetailsModal', () => {
     })
 
     const text = wrapper.text()
+    expect(text).toContain('Журнал · статус')
+    expect(text).toContain('Журнал · роль pending')
+    expect(text).toContain('Журнал · pending з')
     expect(text).toContain('Журнал · pending платформа')
     expect(text).toContain('Журнал · pending thread')
     expect(text).toContain('Журнал · pending клієнт')
@@ -345,10 +373,53 @@ describe('AnalysisDetailsModal', () => {
     expect(text).toContain('amp-cli')
     expect(text).toContain('glm-5.2')
     expect(text).toContain('cursor-grok-4.5-low')
-    expect(text).toContain('Джерело spend')
+    expect(text).toContain('Джерело витрат')
     expect(text).toContain('Source id')
     expect(text).toContain('Via')
-    expect(wrapper.findAll('.analysis-journal-scroll')).toHaveLength(5)
+    expect(wrapper.find('.analysis-metric-card').exists()).toBe(true)
+    expect(wrapper.find('.analysis-session-card').exists()).toBe(true)
+    const sourceCards = journalCards(wrapper, 'Роль')
+    expect(sourceCards.length).toBeGreaterThan(0)
+    expect(labeledValue(sourceCards[0], 'Via')).toBe('amp-cli')
+  })
+
+  it('does not render an empty thread row when session has no threadId or tasks', async () => {
+    wrapper = mount(AnalysisDetailsModal, {
+      attachTo: document.body,
+      props: {
+        row: {
+          ...row,
+          journal: {
+            ...row.journal,
+            sessions: [
+              {
+                role: 'Implementer',
+                phase: 'apply',
+                model: 'cursor-grok-4.6',
+                platform: 'cursor',
+                runtime: 'local',
+                threadId: null,
+                tasks: null,
+                spendSource: 'unreported',
+                ampCredits: null,
+                models: [],
+                sources: [],
+                startedAt: '2026-08-27T11:10:00.000Z',
+                endedAt: '2026-08-27T11:30:19.000Z',
+              },
+            ],
+          },
+        },
+      },
+    })
+
+    const card = wrapper.find('.analysis-session-card')
+    expect(card.exists()).toBe(true)
+    const paragraphs = card.findAll('p')
+    expect(paragraphs).toHaveLength(4)
+    expect(paragraphs.some((p) => p.text().trim() === '—')).toBe(false)
+    expect(card.text()).toContain('Implementer')
+    expect(card.text()).toContain('apply')
   })
 
   it('shows kit overlay estimate when billed cost is missing', async () => {
@@ -397,9 +468,11 @@ describe('AnalysisDetailsModal', () => {
     const text = wrapper.text()
     expect(text).toContain('≈ $0.18')
     expect(text).toContain('Amp credits')
-    const platformsTable = wrapper.findAll('.analysis-journal-table')[0]
-    const cursorCells = platformsTable.findAll('tbody tr')[0].findAll('td')
-    expect(cursorCells[4].text()).toBe('≈ $0.18')
-    expect(cursorCells[5].text()).toBe('—')
+    const cursorCard = journalCards(wrapper, 'Платформа').find(
+      (card) => labeledValue(card, 'Платформа') === 'cursor',
+    )
+    expect(cursorCard).toBeTruthy()
+    expect(labeledValue(cursorCard, 'Вартість')).toBe('≈ $0.18')
+    expect(labeledValue(cursorCard, 'Amp credits')).toBe('—')
   })
 })

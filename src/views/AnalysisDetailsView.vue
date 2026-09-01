@@ -2,6 +2,7 @@
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AnalysisDetailsModal from '@/components/AnalysisDetailsModal.vue'
+import AnalysisLoadingOverlay from '@/components/AnalysisLoadingOverlay.vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useRegistryStore } from '@/stores/registry'
 import { useToastsStore } from '@/stores/toasts'
@@ -25,6 +26,10 @@ const row = computed(
         item.projectId === route.params.projectId &&
         analysisChangeRef(item) === route.params.changeRef,
     ) ?? null,
+)
+
+const showOverlay = computed(
+  () => analysisStore.loading && project.value != null && row.value == null,
 )
 
 function goBack() {
@@ -78,9 +83,7 @@ watch(
         · {{ row.changeName }}
       </template>
     </p>
-    <p v-if="analysisStore.loading">
-      Завантаження аналізу…
-    </p>
+    <AnalysisLoadingOverlay :visible="showOverlay" />
     <p
       v-for="(item, projectId) in analysisStore.error"
       :key="projectId"

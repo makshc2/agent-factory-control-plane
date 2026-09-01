@@ -234,137 +234,6 @@ body {
   border-bottom: none;
 }
 
-.analysis .board-table-wrap {
-  overflow-x: auto;
-}
-
-.analysis-table {
-  width: 100%;
-  table-layout: auto;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
-}
-
-.analysis-table th,
-.analysis-table td {
-  padding: 0.5rem 0.55rem;
-  text-align: left;
-  vertical-align: top;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.analysis-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  line-height: 1.25;
-  color: #64748b;
-  background: #f8fafc;
-  white-space: nowrap;
-}
-
-.analysis-table__col-repo,
-.analysis-table__clip--repo {
-  width: 14%;
-  min-width: 8rem;
-}
-
-.analysis-table__col-change,
-.analysis-table__clip--change {
-  width: 14%;
-  min-width: 8rem;
-}
-
-.analysis-table__clip--repo,
-.analysis-table__clip--change {
-  overflow-wrap: break-word;
-}
-
-.analysis-table th.analysis-table__num,
-.analysis-table td.analysis-table__num,
-.analysis-table__col-num {
-  width: auto;
-  min-width: 0;
-  padding-left: 0.35rem;
-  padding-right: 0.35rem;
-  white-space: nowrap;
-  overflow-wrap: normal;
-  word-break: normal;
-  font-variant-numeric: tabular-nums;
-}
-
-.analysis-table th.analysis-table__stack-cell,
-.analysis-table td.analysis-table__stack-cell,
-.analysis-table__col-models {
-  width: 22rem;
-  min-width: 18rem;
-  white-space: normal;
-}
-
-.analysis-table__models-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.analysis-table__stack {
-  display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-}
-
-.analysis-table__stack-item {
-  display: block;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.analysis-table__stack-item--model {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.75rem;
-  color: #334155;
-}
-
-.analysis-table__ellipsis {
-  display: block;
-  min-width: 0;
-  overflow-wrap: break-word;
-  white-space: normal;
-}
-
-.analysis-table__icon-btn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  margin-top: 0.05rem;
-  padding: 0;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.375rem;
-  background: #fff;
-  color: #334155;
-  cursor: pointer;
-}
-
-.analysis-table__icon-btn:hover {
-  background: #f1f5f9;
-}
-
-.analysis-table__icon-btn svg {
-  width: 1.125rem;
-  height: 1.125rem;
-}
-
 .analysis-details {
   width: 100%;
   margin-top: 1rem;
@@ -423,34 +292,51 @@ body {
   margin-left: 0.35rem;
 }
 
-.analysis-journal-scroll {
-  overflow-x: auto;
+.analysis-metric-card,
+.analysis-session-card,
+.analysis-journal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   margin-top: 1rem;
-  max-width: 100%;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
 }
 
-.analysis-journal-table {
-  width: max-content;
-  min-width: 100%;
-  border-collapse: collapse;
+.analysis-metric-card:first-child {
+  margin-top: 0;
 }
 
-.analysis-journal-table th,
-.analysis-journal-table td {
-  padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid #e2e8f0;
-  text-align: left;
-  vertical-align: top;
-  white-space: nowrap;
+.analysis-metric-card__row,
+.analysis-journal-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
 }
 
-.analysis-journal-table thead th {
-  font-size: 0.75rem;
+.analysis-metric-card__row > span:first-child,
+.analysis-journal-card__row > span:first-child {
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #64748b;
-  background: #f8fafc;
+  color: #334155;
+}
+
+.analysis-metric-card__row > span:last-child,
+.analysis-journal-card__row > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.analysis-session-card p {
+  margin: 0;
+}
+
+.analysis-session-card__wrap {
+  overflow-wrap: anywhere;
 }
 
 .board-table__col-project {
@@ -776,4 +662,107 @@ body {
   font-size: 1.125rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.analysis-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: rgb(15 23 42 / 0.4);
+  color: #0f172a;
+}
+
+.analysis-loading-overlay p {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.375rem;
+  background: #fff;
+  font-size: 0.875rem;
+}
+
+.analysis-loading-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0.2rem solid #e2e8f0;
+  border-top-color: #1d4ed8;
+  border-radius: 50%;
+  animation: analysis-loading-spin 0.7s linear infinite;
+}
+
+@keyframes analysis-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.analysis-change-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.analysis-change-card:first-child {
+  margin-top: 0;
+}
+
+.analysis-change-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.analysis-change-card__row > span:first-child {
+  font-weight: 600;
+  color: #334155;
+}
+
+.analysis-change-card__row > :last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.analysis-change-card button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.analysis-change-card button:hover {
+  background: #f1f5f9;
+}
+
+.analysis-change-card button svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.board-detail-card {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
 }

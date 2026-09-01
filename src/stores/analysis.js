@@ -124,18 +124,31 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const lastLoadedAt = ref(null)
 
   async function loadAnalysis(projects) {
+    const keep =
+      projects.length === 1 && rows.value.some((row) => row.projectId === projects[0].id)
     loading.value = true
-    rows.value = []
+    if (!keep) {
+      rows.value = []
+    }
     try {
+      const collected = []
+      let hadSuccess = false
       for (const project of projects) {
         const id = project.id
         try {
           const part = await loadProject(project)
+          collected.push(...part)
           delete error[id]
-          rows.value = [...rows.value, ...part]
+          hadSuccess = true
+          if (!keep) {
+            rows.value = [...collected]
+          }
         } catch (reason) {
           error[id] = normalizeProviderError(reason)
         }
+      }
+      if (!keep || hadSuccess) {
+        rows.value = collected
       }
       lastLoadedAt.value = Date.now()
     } finally {

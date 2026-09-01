@@ -85,6 +85,19 @@ function tasksNm(change) {
   return ''
 }
 
+function verdictModifier(verdict) {
+  if (verdict === 'APPROVE') {
+    return 'badge-verdict-approve'
+  }
+  if (verdict === 'REQUEST CHANGES') {
+    return 'badge-verdict-changes'
+  }
+  if (verdict === 'REJECT') {
+    return 'badge-verdict-reject'
+  }
+  return ''
+}
+
 function emitClose() {
   emit('close')
 }
@@ -139,10 +152,14 @@ onUnmounted(() => {
             :key="change.changeName ?? index"
           >
             <span>{{ change.changeName }}</span>
-            <span>{{ change.nextRole }}</span>
+            <span class="badge">{{ change.nextRole }}</span>
             <span>{{ tasksNm(change) }}</span>
-            <span>{{ change.verdict }}</span>
-            <span v-if="change.blocked">{{ change.blocked }}</span>
+            <span
+              v-if="change.verdict"
+              class="badge badge-verdict"
+              :class="verdictModifier(change.verdict)"
+            >{{ change.verdict }}</span>
+            <span v-if="change.blocked" class="badge badge-blocked">{{ change.blocked }}</span>
           </li>
         </ul>
       </header>
@@ -153,29 +170,28 @@ onUnmounted(() => {
         {{ detailsError.message }}
       </p>
       <template v-if="details">
-        <section>
-          <template v-if="details.branchHead">
-            <p>
-              {{ shortSha(details.branchHead.sha) }}
-            </p>
-            <p>{{ details.branchHead.message }}</p>
-            <p>{{ details.branchHead.author }}</p>
-            <p>{{ commitDateLabel(details.branchHead.date) }}</p>
-            <p v-if="details.branchHead.url">
-              <a
-                :href="details.branchHead.url"
-                target="_blank"
-                rel="noopener noreferrer"
-              >{{ shortSha(details.branchHead.sha) }}</a>
-            </p>
-          </template>
-          <p v-else>
-            Немає даних про коміт
+        <article v-if="details.branchHead" class="board-detail-card">
+          <p>
+            {{ shortSha(details.branchHead.sha) }}
           </p>
-        </section>
-        <section
+          <p>{{ details.branchHead.message }}</p>
+          <p>{{ details.branchHead.author }}</p>
+          <p>{{ commitDateLabel(details.branchHead.date) }}</p>
+          <p v-if="details.branchHead.url">
+            <a
+              :href="details.branchHead.url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >{{ shortSha(details.branchHead.sha) }}</a>
+          </p>
+        </article>
+        <p v-else>
+          Немає даних про коміт
+        </p>
+        <article
           v-for="[changeName, change] in changeEntries"
           :key="changeName"
+          class="board-detail-card"
         >
           <h3>{{ changeName }}</h3>
           <div>
@@ -217,7 +233,7 @@ onUnmounted(() => {
             <h4>Design</h4>
             <p>{{ fieldText(change?.designExcerpt) }}</p>
           </div>
-        </section>
+        </article>
       </template>
       <button type="button" @click="emitRefresh">
         Оновити деталі

@@ -274,4 +274,52 @@ describe('useAnalysisStore', () => {
     expect(store.rows.map((row) => row.changeName)).toContain('add-login')
     expect(store.rows.map((row) => row.changeName)).toContain('add-gitlab')
   })
+
+  it('keeps rows while a second loadAnalysis of the same project is pending', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+
+    await store.loadAnalysis([project])
+
+    expect(store.rows.length).toBeGreaterThanOrEqual(1)
+
+    let resolveList
+    const deferred = new Promise((resolve) => {
+      resolveList = resolve
+    })
+    client.listChanges.mockImplementation(() => deferred)
+
+    const pending = store.loadAnalysis([project])
+
+    expect(store.loading).toBe(true)
+    expect(store.rows.length).toBeGreaterThanOrEqual(1)
+
+    resolveList(['add-login'])
+    await pending
+  })
+
+  it('clears rows when loadAnalysis starts for a different project id', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+
+    await store.loadAnalysis([project])
+
+    expect(store.rows.length).toBeGreaterThanOrEqual(1)
+
+    let resolveList
+    const deferred = new Promise((resolve) => {
+      resolveList = resolve
+    })
+    client.listChanges.mockImplementation(() => deferred)
+    const otherProject = { ...project, id: 'proj-2' }
+
+    const pending = store.loadAnalysis([otherProject])
+
+    expect(store.rows.length).toBe(0)
+
+    resolveList(['add-login'])
+    await pending
+  })
 })
