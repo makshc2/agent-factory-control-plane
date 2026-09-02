@@ -271,54 +271,61 @@ const sourceRows = computed(() => {
 
 <template>
   <section class="analysis-details">
-    <article class="analysis-metric-card">
-      <div
-        v-for="item in detailRows"
-        :key="item.label"
-        class="analysis-metric-card__row"
+    <div class="analysis-card-grid">
+      <article class="analysis-metric-card">
+        <div
+          v-for="item in detailRows"
+          :key="item.label"
+          class="analysis-metric-card__row"
+        >
+          <span>{{ item.label }}</span>
+          <span>{{ item.value }}</span>
+        </div>
+      </article>
+    </div>
+    <div class="analysis-card-grid">
+      <article
+        v-for="item in platformRows"
+        :key="item.platform"
+        class="analysis-journal-card"
       >
-        <span>{{ item.label }}</span>
-        <span>{{ item.value }}</span>
-      </div>
-    </article>
-    <article
-      v-for="item in platformRows"
-      :key="item.platform"
-      class="analysis-journal-card"
-    >
-      <div class="analysis-journal-card__row">
-        <span>Платформа</span>
-        <span>{{ item.platform }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Вхід</span>
-        <span>{{ item.inputTokens }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Вихід</span>
-        <span>{{ item.outputTokens }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Усього</span>
-        <span>{{ item.totalTokens }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Вартість</span>
-        <span>{{ item.costUsd }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Amp credits</span>
-        <span>{{ item.ampCredits }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Джерело</span>
-        <span>{{ item.source }}</span>
-      </div>
-    </article>
+        <div class="analysis-journal-card__row">
+          <span>Платформа</span>
+          <span>{{ item.platform }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Вхід</span>
+          <span>{{ item.inputTokens }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Вихід</span>
+          <span>{{ item.outputTokens }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Усього</span>
+          <span>{{ item.totalTokens }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Вартість</span>
+          <span>{{ item.costUsd }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Amp credits</span>
+          <span>{{ item.ampCredits }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Джерело</span>
+          <span>{{ item.source }}</span>
+        </div>
+      </article>
+    </div>
     <p v-if="modelRows.length === 0">
       немає
     </p>
-    <template v-else>
+    <div
+      v-else
+      class="analysis-card-grid"
+    >
       <article
         v-for="(item, index) in modelRows"
         :key="index"
@@ -353,46 +360,51 @@ const sourceRows = computed(() => {
           <span>{{ item.ampCredits }}</span>
         </div>
       </article>
-    </template>
-    <article
-      v-for="item in phaseRows"
-      :key="item.phase"
-      class="analysis-journal-card"
-    >
-      <div class="analysis-journal-card__row">
-        <span>Фаза</span>
-        <span>{{ item.phase }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Сесії</span>
-        <span>{{ item.sessions }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Тривалість</span>
-        <span>{{ item.duration }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Токени</span>
-        <span>{{ item.tokens }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Вартість</span>
-        <span>{{ item.costUsd }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Агенти</span>
-        <span>{{ item.agents }}</span>
-      </div>
-      <div class="analysis-journal-card__row">
-        <span>Моделі</span>
-        <span>{{ item.models }}</span>
-      </div>
-    </article>
+    </div>
+    <div class="analysis-card-grid">
+      <article
+        v-for="item in phaseRows"
+        :key="item.phase"
+        class="analysis-journal-card"
+      >
+        <div class="analysis-journal-card__row">
+          <span>Фаза</span>
+          <span>{{ item.phase }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Сесії</span>
+          <span>{{ item.sessions }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Тривалість</span>
+          <span>{{ item.duration }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Токени</span>
+          <span>{{ item.tokens }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Вартість</span>
+          <span>{{ item.costUsd }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Агенти</span>
+          <span>{{ item.agents }}</span>
+        </div>
+        <div class="analysis-journal-card__row">
+          <span>Моделі</span>
+          <span>{{ item.models }}</span>
+        </div>
+      </article>
+    </div>
     <section class="analysis-sessions">
       <p v-if="sessionRows.length === 0">
         немає
       </p>
-      <template v-else>
+      <div
+        v-else
+        class="analysis-card-grid"
+      >
         <article
           v-for="(item, index) in sessionRows"
           :key="index"
@@ -417,12 +429,15 @@ const sourceRows = computed(() => {
             {{ item.tasks }}
           </p>
         </article>
-      </template>
+      </div>
     </section>
     <p v-if="sourceRows.length === 0">
       немає
     </p>
-    <template v-else>
+    <div
+      v-else
+      class="analysis-card-grid"
+    >
       <article
         v-for="(item, index) in sourceRows"
         :key="index"
@@ -473,6 +488,6 @@ const sourceRows = computed(() => {
           <span>{{ item.at }}</span>
         </div>
       </article>
-    </template>
+    </div>
   </section>
 </template>

@@ -270,7 +270,10 @@ watch(
     <p v-else-if="analysisStore.rows.length > 0 && filteredRows.length === 0">
       Немає рядків за фільтром.
     </p>
-    <div v-else-if="filteredRows.length > 0">
+    <div
+      v-else-if="filteredRows.length > 0"
+      class="analysis-card-grid"
+    >
       <article
         v-for="row in filteredRows"
         :key="rowKey(row)"

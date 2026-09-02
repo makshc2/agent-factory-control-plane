@@ -292,22 +292,43 @@ body {
   margin-left: 0.35rem;
 }
 
+.analysis-card-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, max(18rem, calc((100% - 3rem) / 4))), 1fr)
+  );
+  gap: 1rem;
+  align-items: start;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.analysis-details > .analysis-card-grid:first-child {
+  margin-top: 0;
+}
+
+.analysis-sessions {
+  margin-top: 1rem;
+}
+
+.analysis-sessions > .analysis-card-grid {
+  margin-top: 0;
+}
+
 .analysis-metric-card,
 .analysis-session-card,
 .analysis-journal-card {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-top: 1rem;
+  min-width: 0;
+  margin: 0;
   padding: 1rem 1.25rem;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
   overflow-wrap: anywhere;
-}
-
-.analysis-metric-card:first-child {
-  margin-top: 0;
 }
 
 .analysis-metric-card__row,
@@ -704,16 +725,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-top: 1rem;
+  min-width: 0;
+  margin: 0;
   padding: 1rem 1.25rem;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
   overflow-wrap: anywhere;
-}
-
-.analysis-change-card:first-child {
-  margin-top: 0;
 }
 
 .analysis-change-card__row {
