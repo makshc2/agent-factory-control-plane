@@ -2,8 +2,8 @@
   "version": 1,
   "change": "add-analysis-date-range",
   "createdAt": "2026-09-02T20:28:44.323Z",
-  "updatedAt": "2026-09-03T06:25:11.408Z",
-  "archivedAt": null,
+  "updatedAt": "2026-09-03T06:49:58.928Z",
+  "archivedAt": "2026-09-03T06:49:58.928Z",
   "spend": {
     "inputTokens": null,
     "outputTokens": null,
@@ -53,9 +53,9 @@
     }
   ],
   "totals": {
-    "sessions": 3,
-    "durationMs": 1782429,
-    "leadTimeMs": 35787085,
+    "sessions": 4,
+    "durationMs": 1965503,
+    "leadTimeMs": 37274605,
     "cloudSessions": 0
   },
   "phases": {
@@ -108,6 +108,24 @@
       "costUsdEstimated": null,
       "agents": [
         "Implementer"
+      ],
+      "models": [
+        "cursor-grok-4.6"
+      ]
+    },
+    "archive": {
+      "sessions": 1,
+      "durationMs": 183074,
+      "startedAt": "2026-09-03T06:46:55.854Z",
+      "endedAt": "2026-09-03T06:49:58.928Z",
+      "leadTimeMs": 183074,
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "costUsdEstimated": null,
+      "agents": [
+        "Archiver"
       ],
       "models": [
         "cursor-grok-4.6"
@@ -168,6 +186,27 @@
       "model": "cursor-grok-4.6",
       "platform": "cursor",
       "threadId": "f817ef26-93e4-46ca-b41d-9db02c4e0296",
+      "tasks": "14/14",
+      "sources": [],
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "ampCredits": null,
+      "costUsdEstimated": null,
+      "spendSource": "unreported"
+    },
+    {
+      "startedAt": "2026-09-03T06:46:55.854Z",
+      "endedAt": "2026-09-03T06:49:58.928Z",
+      "durationMs": 183074,
+      "role": "Archiver",
+      "phase": "archive",
+      "runtime": "local",
+      "agentId": "none",
+      "model": "cursor-grok-4.6",
+      "platform": "cursor",
+      "threadId": "1d01edf1-cc84-427e-8d1d-1f5ded9b4809",
       "tasks": "14/14",
       "sources": [],
       "inputTokens": null,

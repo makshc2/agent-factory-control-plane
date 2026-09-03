@@ -117,12 +117,19 @@ change-metrics — requirements merged from change add-change-metrics.
 
 ### Requirement: Архівні зміни на поверхні аналізу
 
-Поверхня аналізу SHALL включати архівні зміни з `openspec/changes/archive/`, інакше історія планування зникає після `/opsx:archive`. Парсинг імені теки SHALL бути `/^(\d{4}-\d{2}-\d{2})-(.+)$/` → `{ archivedAt, changeName }`; без збігу `changeName` дорівнює імені теки, `archivedAt` є `null`. Жива таблиця активних змін MUST NOT почати показувати архівні рядки через цю вимогу.
+Поверхня аналізу SHALL відкривати listing архівних змін з `openspec/changes/archive/` (API без параметрів дат), інакше історія планування зникає після `/opsx:archive` у режимі «весь час». Парсинг імені теки SHALL бути `/^(\d{4}-\d{2}-\d{2})-(.+)$/` → `{ archivedAt, changeName }`; без збігу `changeName` дорівнює імені теки, `archivedAt` є `null`. У календарному вікні система MUST NOT будувати рядок аналізу для кожної теки listing: рядок з’являється лише після `loadChange` за вимогою «Правило skip loadChange за періодом». У режимі «весь час» система SHALL викликати `loadChange` для кожного елемента listing архіву. Жива таблиця активних змін на `/` MUST NOT почати показувати архівні рядки через цю вимогу.
 
 #### Scenario: Архів присутній в аналізі
 
-- **WHEN** у репозиторії є активна зміна `add-login` і архівна тека `2026-08-28-add-factory-board`
+- **WHEN** у репозиторії є активна зміна `add-login` і архівна тека `2026-08-28-add-factory-board`, і ввімкнено «весь час»
 - **THEN** аналіз містить обидва рядки, а жива таблиця борду як і раніше містить лише `add-login`
+
+#### Scenario: У вікні не кожен архів listing стає рядком
+
+- **WHEN** listing архіву містить `2026-01-01-old-change` і `2026-08-28-add-factory-board`, і календарне вікно не містить `2026-01-01`
+- **THEN** аналіз MUST NOT показувати рядок `old-change`
+- **AND** listing архіву все одно виконується
+- **AND** жива таблиця борду як і раніше не містить архівних рядків
 
 #### Scenario: Немає теки archive
 
@@ -131,12 +138,12 @@ change-metrics — requirements merged from change add-change-metrics.
 
 ### Requirement: Екран аналізу змін
 
-Система SHALL надавати екран аналізу (`/analysis/:projectId`) із заголовком «Аналіз змін», посиланням «Борд» на `/`, кнопкою «Оновити», яка повторно завантажує аналіз поточного проєкту маршруту, і кнопкою «Експорт CSV» (неактивна, якщо немає рядків). Порожній реєстр SHALL показувати «Немає зареєстрованих проєктів.» Якщо `projectId` немає в реєстрі — «Проєкт не знайдено. Відкрийте аналіз кнопкою в таблиці борду.» Після завантаження без рядків SHALL показувати «Немає даних для аналізу.» Під час завантаження, якщо немає рядків цього проєкту для рендеру, SHALL показувати оверлей за вимогою «Оверлей завантаження аналізу»; система MUST NOT заміняти вже показані картки цього проєкту рядком «Завантаження аналізу…» без оверлею-контракту. Помилки завантаження проєктів SHALL показуватися банером і MUST NOT скасовувати успішні проєкти. Клієнтські фільтри (без HTTP): пошук за repo / `changeName`; вибір `усі` / `активні` / `архів`. Кожна видима зміна SHALL бути карткою (не колонкою широкої таблиці) з підписаними полями українською: Проєкт, Зміна, Архів (так/ні та дата, якщо є), Вердикт, Задачі n/m, Цикли рев’ю, Спека, Рев’ю, Apply, Усього, Сесії (`journal.totals.sessions` або `—`), Lead time (`kitTimes.leadMs` або `—`), Токени (`spend.totalTokens` або `—`), Вартість (за вимогою «Резолюція показаної вартості»: billed `$x.xx`, або `≈ $x.xx` з kit `costUsdEstimated`, або `—`), Моделі (`agents.models` або `—`), дія «Деталі метрик». Агенти (runtime і ролі) і платформи MUST лишатися на сторінці деталей журналу і MUST NOT вимагати окремих колонок широкої таблиці списку. Якщо `journal.pending` не `null`, біля назви зміни SHALL бути компактний текст «триває»; tooltip цього тексту SHALL містити непорожні `pending.role`, `pending.platform`, `pending.threadId`, `pending.clientSource`. Поля Спека / Рев’ю / Apply / Усього SHALL показувати kit-тривалість фази / `workMs`, якщо це скінченне число (включно з `0`); інакше git-span відповідної групи (`spec` / `review` / `apply` / `change`). Тривалість SHALL рендеритися наявним українським форматом інтервалу (год/хв/с) або `—`. Tooltip MUST називати джерело показаного числа. Кнопка або контроль «Деталі метрик» SHALL відкривати full-page маршрут `/analysis/:projectId/metrics/:changeRef` (компонент вмісту може лишатися `AnalysisDetailsModal.vue`): мета журналу (версія, createdAt, updatedAt, archivedAt; pending за вимогою «Приховати порожній pending у деталях метрик»), totals (сесії, хмарні сесії, робочий час, lead time), картки spendByPlatform (з ampCredits і source), spendByModel, phases (агенти, моделі, тривалість, spend), sessions (за вимогою «Картка сесії журналу»), sources (id, via, platform, model, tokens, cost, ampCredits, at), git-span і spend-overlay. У картках платформ, моделей, фаз, сесій і sources вартість того запису SHALL показувати скінченне `costUsd` як `$x.xx`, інакше скінченне `costUsdEstimated` як `≈ $x.xx`, інакше `—`; Amp credits SHALL лишатися окремим полем і MUST NOT зливатися з вартістю. Дати на сторінці деталей SHALL бути в часовому поясі Києва. Сторінка деталей MUST NOT показувати бал 1–5 і MUST NOT бути модальним `role="dialog"`. Живий полер борду MUST NOT бути джерелом цих рядків.
+Система SHALL надавати екран аналізу (`/analysis/:projectId`) із заголовком «Аналіз змін», посиланням «Борд» на `/`, кнопкою «Оновити», яка повторно завантажує аналіз поточного проєкту маршруту, і кнопкою «Експорт CSV» (неактивна, якщо немає рядків). Порожній реєстр SHALL показувати «Немає зареєстрованих проєктів.» Якщо `projectId` немає в реєстрі — «Проєкт не знайдено. Відкрийте аналіз кнопкою в таблиці борду.» Після завантаження без рядків SHALL показувати «Немає даних для аналізу.» (включно з випадком, коли вікно не дало жодного рядка). Під час завантаження, якщо немає рядків цього проєкту для поточного періоду для рендеру, SHALL показувати оверлей за вимогою «Оверлей завантаження аналізу»; система MUST NOT заміняти вже показані картки цього проєкту й періоду рядком «Завантаження аналізу…» без оверлею-контракту. Помилки завантаження проєктів SHALL показуватися банером і MUST NOT скасовувати успішні проєкти. Клієнтські фільтри (без HTTP): пошук за repo / `changeName`; вибір `усі` / `активні` / `архів`. Період аналізу SHALL бути окремим HTTP-фільтром завантаження, не клієнтським фільтром уже завантажених рядків: за замовчуванням останні 7 календарних днів у поясі Києва (`from = today-6`, `to = today`, обидва кінці включно); контроль «весь час» SHALL відновлювати чинну поведінку завантаження всіх активних і всіх архівних змін через `loadChange` без skip. Кожна видима зміна SHALL бути карткою (не колонкою широкої таблиці) з підписаними полями українською: Проєкт, Зміна, Архів (так/ні та дата, якщо є), Вердикт, Задачі n/m, Цикли рев’ю, Спека, Рев’ю, Apply, Усього, Сесії (`journal.totals.sessions` або `—`), Lead time (`kitTimes.leadMs` або `—`), Токени (`spend.totalTokens` або `—`), Вартість (за вимогою «Резолюція показаної вартості»: billed `$x.xx`, або `≈ $x.xx` з kit `costUsdEstimated`, або `—`), Моделі (`agents.models` або `—`), дія «Деталі метрик». Агенти (runtime і ролі) і платформи MUST лишатися на сторінці деталей журналу і MUST NOT вимагати окремих колонок широкої таблиці списку. Якщо `journal.pending` не `null`, біля назви зміни SHALL бути компактний текст «триває»; tooltip цього тексту SHALL містити непорожні `pending.role`, `pending.platform`, `pending.threadId`, `pending.clientSource`. Поля Спека / Рев’ю / Apply / Усього SHALL показувати kit-тривалість фази / `workMs`, якщо це скінченне число (включно з `0`); інакше git-span відповідної групи (`spec` / `review` / `apply` / `change`). Тривалість SHALL рендеритися наявним українським форматом інтервалу (год/хв/с) або `—`. Tooltip MUST називати джерело показаного числа. Кнопка або контроль «Деталі метрик» SHALL відкривати full-page маршрут `/analysis/:projectId/metrics/:changeRef` (компонент вмісту може лишатися `AnalysisDetailsModal.vue`): мета журналу (версія, createdAt, updatedAt, archivedAt; pending за вимогою «Приховати порожній pending у деталях метрик»), totals (сесії, хмарні сесії, робочий час, lead time), картки spendByPlatform (з ampCredits і source), spendByModel, phases (агенти, моделі, тривалість, spend), sessions (за вимогою «Картка сесії журналу»), sources (id, via, platform, model, tokens, cost, ampCredits, at), git-span і spend-overlay. У картках платформ, моделей, фаз, сесій і sources вартість того запису SHALL показувати скінченне `costUsd` як `$x.xx`, інакше скінченне `costUsdEstimated` як `≈ $x.xx`, інакше `—`; Amp credits SHALL лишатися окремим полем і MUST NOT зливатися з вартістю. Дати на сторінці деталей SHALL бути в часовому поясі Києва. Сторінка деталей MUST NOT показувати бал 1–5 і MUST NOT бути модальним `role="dialog"`. Живий полер борду MUST NOT бути джерелом цих рядків.
 
 #### Scenario: Відкриття аналізу
 
 - **WHEN** оператор відкриває аналіз проєкту з реєстру
-- **THEN** екран показує «Аналіз змін» і запускає завантаження аналізу цього проєкту; живий полер борду не є джерелом цих рядків
+- **THEN** екран показує «Аналіз змін» і запускає завантаження аналізу цього проєкту з періодом за замовчуванням (7 календарних днів Києва); живий полер борду не є джерелом цих рядків
 
 #### Scenario: Порожній реєстр на аналізі
 
@@ -145,8 +152,9 @@ change-metrics — requirements merged from change add-change-metrics.
 
 #### Scenario: Фільтр архіву
 
-- **WHEN** серед рядків є активна і архівна зміна, і оператор обирає «архів»
+- **WHEN** серед завантажених рядків є активна і архівна зміна, і оператор обирає «архів»
 - **THEN** видима лише картка (картки) архівної зміни
+- **AND** система MUST NOT викликати HTTP лише через цей вибір
 
 #### Scenario: Нові колонки журналу
 
@@ -196,9 +204,28 @@ change-metrics — requirements merged from change add-change-metrics.
 - **THEN** у блоці платформ деталей (картка замість широкої таблиці) запис `cursor` у полі Вартість показує `≈ $0.18`
 - **AND** поле Amp credits цього запису не містить `0.18`
 
+#### Scenario: Default вікно на відкритті
+
+- **WHEN** оператор відкриває аналіз проєкту з порожнім стором
+- **THEN** контролі періоду показують 7 календарних днів Києва (`from = today-6`, `to = today`)
+- **AND** HTTP-завантаження використовує це вікно, а не «весь час»
+
+#### Scenario: Весь час відновлює повне завантаження
+
+- **WHEN** оператор вмикає «весь час» після вікна
+- **THEN** виконується новий HTTP `loadAnalysis` без skip архівів за `archivedAt`
+- **AND** клієнтські пошук і усі/активні/архів лишаються застосовними до вже завантажених рядків
+
+#### Scenario: Порожнє вікно після load
+
+- **WHEN** `loadAnalysis` завершився успішно, `loading === false`, проєкт є в реєстрі, і жодна зміна не стала рядком цього періоду
+- **THEN** екран показує «Немає даних для аналізу.»
+- **AND** оверлей відсутній
+- **AND** кнопка «Експорт CSV» неактивна
+
 ### Requirement: Експорт CSV
 
-Екран аналізу SHALL дозволяти завантажити CSV усіх завантажених рядків у файл `factory-board-analysis.csv` у кодуванні UTF-8 з BOM для Excel. Заголовки MUST бути стабільними англійськими в цьому порядку: `project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids,cost_usd_estimated`. Колонки `spec_hours`, `review_hours`, `apply_hours`, `change_hours` SHALL лишатися git-span (`spans.*.durationMs`). `work_hours` SHALL бути `kitTimes.workMs/3600000`; `lead_hours` — `kitTimes.leadMs/3600000`. Години SHALL округлюватися до 1 десяткового (`durationMs/3600000`). `null` → порожня клітинка. `roles`, `subagents`, `models`, `platforms`, `session_spend_sources`, `thread_ids` SHALL з’єднуватися через `|`. `sessions` і `cloud_sessions` — `journal.totals.sessions` і `journal.totals.cloudSessions`. `pending_role` / `pending_platform` / `pending_thread_id` / `pending_client_source` — відповідні поля `journal.pending` або порожньо. `session_spend_sources` — унікальні `session.spendSource` у порядку першої появи. `thread_ids` — унікальні `pending.threadId` і `session.threadId`. `amp_credits` — скінченне `journal.spendByPlatform.amp.ampCredits` або порожньо. `cost_usd` SHALL лишатися billed `spend.costUsd` (не оцінка). `cost_usd_estimated` SHALL бути `spend.costUsdEstimated` або порожньо. Кнопка експорту MUST бути неактивною, якщо рядків немає.
+Екран аналізу SHALL дозволяти завантажити CSV усіх завантажених рядків поточного періоду (календарне вікно або «весь час») у файл `factory-board-analysis.csv` у кодуванні UTF-8 з BOM для Excel. Заголовки MUST бути стабільними англійськими в цьому порядку: `project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids,cost_usd_estimated`. Колонки `spec_hours`, `review_hours`, `apply_hours`, `change_hours` SHALL лишатися git-span (`spans.*.durationMs`). `work_hours` SHALL бути `kitTimes.workMs/3600000`; `lead_hours` — `kitTimes.leadMs/3600000`. Години SHALL округлюватися до 1 десяткового (`durationMs/3600000`). `null` → порожня клітинка. `roles`, `subagents`, `models`, `platforms`, `session_spend_sources`, `thread_ids` SHALL з’єднуватися через `|`. `sessions` і `cloud_sessions` — `journal.totals.sessions` і `journal.totals.cloudSessions`. `pending_role` / `pending_platform` / `pending_thread_id` / `pending_client_source` — відповідні поля `journal.pending` або порожньо. `session_spend_sources` — унікальні `session.spendSource` у порядку першої появи. `thread_ids` — унікальні `pending.threadId` і `session.threadId`. `amp_credits` — скінченне `journal.spendByPlatform.amp.ampCredits` або порожньо. `cost_usd` SHALL лишатися billed `spend.costUsd` (не оцінка). `cost_usd_estimated` SHALL бути `spend.costUsdEstimated` або порожньо. Кнопка експорту MUST бути неактивною, якщо рядків немає. CSV MUST NOT містити архівні зміни, які період пропустив (немає рядка в Pinia). Клієнтський фільтр пошуку / усі / активні / архів MUST NOT змінювати набір рядків CSV: експорт SHALL брати завантажені рядки стора, не лише видимі картки.
 
 #### Scenario: Експорт з BOM
 
@@ -230,11 +257,16 @@ change-metrics — requirements merged from change add-change-metrics.
 - **WHEN** у рядка `spend.costUsdEstimated === null`
 - **THEN** клітинка `cost_usd_estimated` порожня, а не `0` і не `0.00`
 
-
 #### Scenario: CSV оцінки не робить walk журналу
 
 - **WHEN** `spend.costUsdEstimated === null` і `journal.spendByPlatform.cursor.costUsdEstimated === 0.18`
 - **THEN** клітинка `cost_usd_estimated` порожня, а комірка «Вартість» екрана аналізу є `≈ $0.18`
+
+#### Scenario: CSV не містить пропущений архів вікна
+
+- **WHEN** період є вікном, що пропускає архів `2026-01-01-old-change`, і в сторі є лише завантажені рядки цього вікна, і оператор натискає «Експорт CSV»
+- **THEN** текст CSV MUST NOT містити `old-change`
+- **AND** рядок заголовків лишається в зазначеному порядку без нових колонок дат вікна
 
 ### Requirement: Агенти з handoff
 
@@ -382,25 +414,38 @@ change-metrics — requirements merged from change add-change-metrics.
 
 ### Requirement: Оверлей завантаження аналізу
 
-Система SHALL показувати повносторінковий оверлей завантаження на екранах `/analysis/:projectId` і `/analysis/:projectId/metrics/:changeRef` тоді й лише тоді, коли `loading === true` і на поточному екрані немає що рендерити. «Немає що рендерити» на списку означає: у сторі немає жодного рядка з `projectId` поточного маршруту. На сторінці деталей: немає рядка з цим `projectId` і `changeRef`. Оверлей MUST містити видимий спінер (CSS, не Quasar/`QSpinner`) і текст «Завантаження аналізу…». Якщо для цього `projectId` у Pinia вже є щонайменше один рядок, система MUST NOT очищати ці рядки на старті повторного `loadAnalysis` і MUST NOT показувати оверлей (фонове оновлення дозволене). Перехід на інший `projectId` або перше завантаження без рядків SHALL очистити чужі рядки і показати оверлей, доки не з’явиться вміст або порожній стан. Живий 60-секундний полер борду і рядковий індикатор «оновлюється…» на `/` MUST NOT показувати цей оверлей. Після завершення завантаження без рядків оверлей MUST зникнути, і список SHALL показати «Немає даних для аналізу.» (якщо проєкт у реєстрі).
+Система SHALL показувати повносторінковий оверлей завантаження на екранах `/analysis/:projectId` і `/analysis/:projectId/metrics/:changeRef` тоді й лише тоді, коли `loading === true` і на поточному екрані немає що рендерити. Ключ свіжості SHALL бути `projectId` плюс період (`from`/`to` як `YYYY-MM-DD` або sentinel «весь час»). «Немає що рендерити» на списку означає: у сторі немає жодного рядка з `projectId` поточного маршруту **або** збережений період завантажених рядків не збігається з поточним ключем періоду. На сторінці деталей: немає рядка з цим `projectId` і `changeRef`. Оверлей MUST містити видимий спінер (CSS, не Quasar/`QSpinner`) і текст «Завантаження аналізу…». Якщо для цього ключа (`projectId` + період) у Pinia вже є щонайменше один рядок, система MUST NOT очищати ці рядки на старті повторного `loadAnalysis` і MUST NOT показувати оверлей (фонове оновлення дозволене). Повернення з `/analysis/:projectId/metrics/:changeRef` на список MUST NOT викликати повний `loadAnalysis`, якщо ключ збігається. Зміна періоду SHALL запускати новий `loadAnalysis`; оверлей SHALL з’явитися лише якщо немає рядків цього нового ключа. Перехід на інший `projectId` або перше завантаження без рядків SHALL очистити чужі рядки і показати оверлей, доки не з’явиться вміст або порожній стан. Живий 60-секундний полер борду і рядковий індикатор «оновлюється…» на `/` MUST NOT показувати цей оверлей. Після завершення завантаження без рядків оверлей MUST зникнути, і список SHALL показати «Немає даних для аналізу.» (якщо проєкт у реєстрі).
 
 #### Scenario: Холодне завантаження списку
 
-- **WHEN** оператор відкриває `/analysis/:projectId`, у сторі немає рядків цього проєкту, і `loadAnalysis` ще не завершився
+- **WHEN** оператор відкриває `/analysis/:projectId`, у сторі немає рядків цього проєкту для поточного періоду, і `loadAnalysis` ще не завершився
 - **THEN** видно оверлей з текстом «Завантаження аналізу…» і спінером
 - **AND** оверлей MUST NOT бути компонентом Quasar і MUST NOT використовувати `QSpinner`
 
 #### Scenario: Повернення з деталей не спалахує порожнім списком
 
-- **WHEN** у Pinia вже є рядки з `projectId === P`, і оператор переходить зі сторінки деталей назад на `/analysis/P` (або список знову викликає `loadAnalysis` для `P`)
-- **THEN** картки змін `P` лишаються видимими під час запиту
+- **WHEN** у Pinia вже є рядки з `projectId === P` для того самого періоду, і оператор переходить зі сторінки деталей назад на `/analysis/P`
+- **THEN** картки змін `P` лишаються видимими
 - **AND** оверлей завантаження аналізу відсутній
+- **AND** система MUST NOT викликати повний `loadAnalysis` лише через цей back
 
 #### Scenario: Інший проєкт показує оверлей
 
 - **WHEN** у сторі є рядки проєкту A, і оператор відкриває аналіз проєкту B, для якого рядків ще немає
 - **THEN** рядки проєкту A не лишаються єдиним вмістом екрана B
 - **AND** до завершення завантаження B видно оверлей «Завантаження аналізу…»
+
+#### Scenario: Зміна періоду без рядків нового ключа показує оверлей
+
+- **WHEN** у сторі є рядки проєкту P для періоду A, і оператор ставить валідний період B, для якого рядків ще немає
+- **THEN** до завершення нового `loadAnalysis` видно оверлей «Завантаження аналізу…»
+- **AND** картки періоду A MUST NOT лишатися єдиним вмістом як «свіжі» рядки періоду B
+
+#### Scenario: Оновити той самий період без оверлею
+
+- **WHEN** у Pinia вже є рядки проєкту P для поточного періоду, і оператор натискає «Оновити»
+- **THEN** картки P лишаються видимими під час запиту
+- **AND** оверлей завантаження аналізу відсутній
 
 #### Scenario: Deep-link деталей без рядків
 
@@ -409,7 +454,7 @@ change-metrics — requirements merged from change add-change-metrics.
 
 #### Scenario: Деталі з уже завантаженим проєктом без оверлею
 
-- **WHEN** у сторі вже є рядки цього `projectId`, і оператор відкриває деталі зміни цього проєкту
+- **WHEN** у сторі вже є рядки цього `projectId` для поточного періоду, і оператор відкриває деталі зміни цього проєкту
 - **THEN** оверлей відсутній
 - **AND** система MUST NOT повторно викликати важкий fetch аналізу лише через навігацію на деталі
 
@@ -499,3 +544,120 @@ change-metrics — requirements merged from change add-change-metrics.
 - **WHEN** `journal.pending === null` і оператор експортує CSV
 - **THEN** заголовки `pending_role,pending_platform,pending_thread_id,pending_client_source` присутні, відповідні клітинки порожні
 - **AND** модель рядка все ще має `journal.pending === null`, а не відсутній ключ через видалення фічі
+
+### Requirement: Календарне вікно аналізу
+
+Період аналізу SHALL бути календарним вікном у поясі `Europe/Kyiv`, не в локальній TZ браузера і не в UTC-дні як заміні Києва. У режимі вікна обидва кінці SHALL бути включними: зміна з датою `from` або `to` входить у вікно. За замовчуванням система SHALL ставити `to` рівним сьогоднішньому календарному дню Києва і `from` рівним цьому дню мінус 6 календарних днів (рівно 7 днів включно). Дати вікна SHALL бути рядками `YYYY-MM-DD`. Режим «весь час» SHALL бути окремим sentinel і MUST NOT вимагати `from`/`to` для завантаження. Якщо режим вікна активний і (`from` або `to` порожні, або `from > to`), система MUST NOT викликати HTTP `loadAnalysis` і SHALL показати видиме повідомлення валідації біля контролів періоду.
+
+#### Scenario: Default — 7 календарних днів Києва
+
+- **WHEN** оператор уперше відкриває `/analysis/:projectId` і період ще не змінював
+- **THEN** `to` є сьогоднішнім `YYYY-MM-DD` у `Europe/Kyiv`, `from` є `to` мінус 6 календарних днів, і завантаження використовує це вікно
+- **AND** якщо «сьогодні» в Києві є `2026-09-02`, то `from === '2026-08-27'` і `to === '2026-09-02'`
+
+#### Scenario: Обидва кінці включні
+
+- **WHEN** вікно є `from === '2026-08-27'` і `to === '2026-09-02'`, і серед архівів є теки з `archivedAt === '2026-08-27'` та `archivedAt === '2026-09-02'`
+- **THEN** обидві архівні зміни стають рядками аналізу (якщо пройшли інші правила skip)
+
+#### Scenario: from пізніше за to
+
+- **WHEN** оператор у режимі вікна ставить `from` пізніше за `to` (або лишає порожнє поле дати)
+- **THEN** система MUST NOT викликати HTTP `loadAnalysis`
+- **AND** біля контролів періоду видно повідомлення валідації
+- **AND** рядки попереднього успішного завантаження не замінюються порожнім фетчем
+
+#### Scenario: Весь час не вимагає дат
+
+- **WHEN** оператор вмикає «весь час»
+- **THEN** завантаження не пропускає архіви за `archivedAt`
+- **AND** валідація `from <= to` MUST NOT блокувати цей режим
+
+### Requirement: Правило skip loadChange за періодом
+
+Система SHALL викликати listing активних змін і listing `openspec/changes/archive/` без параметрів дат (як зараз). Після listing система SHALL вирішувати, чи викликати важкий `loadChange` (тека + артефакти + коміти) для кожної зміни. У режимі «весь час» система SHALL викликати `loadChange` для кожної активної і кожної архівної зміни з listing. У режимі вікна система SHALL викликати `loadChange` для кожної активної зміни незалежно від дати створення. Для архівної зміни у вікні система SHALL викликати `loadChange` тоді й лише тоді, коли `archivedAt === null` або `archivedAt` є `YYYY-MM-DD` і лежить у включному `[from, to]`. Архів з `archivedAt` поза вікном MUST NOT ставати рядком і MUST NOT отримувати fan-out `loadChange`.
+
+#### Scenario: Активна зміна завжди вантажиться
+
+- **WHEN** період є вікном останніх 7 днів, і listing активних містить `add-login`
+- **THEN** для `add-login` викликається `loadChange` і рядок з `archived === false` є в результаті
+- **AND** система MUST NOT пропускати активну зміну через відсутність дати створення
+
+#### Scenario: Архів поза вікном не вантажиться
+
+- **WHEN** вікно є `2026-08-27`–`2026-09-02`, listing архіву містить `2026-01-01-old-change` (`archivedAt === '2026-01-01'`) і `2026-08-28-add-factory-board`
+- **THEN** `loadChange` викликається для `2026-08-28-add-factory-board` і MUST NOT викликатися для `2026-01-01-old-change`
+- **AND** у рядках немає `old-change`
+- **AND** listing архіву все одно був викликаний
+
+#### Scenario: Архів без дати в імені включається
+
+- **WHEN** період є вікном (не «весь час»), і listing архіву містить теку `hotfix` (`archivedAt === null`)
+- **THEN** для `hotfix` викликається `loadChange` і рядок з `changeName === 'hotfix'` та `archivedAt === null` є в результаті
+
+#### Scenario: Весь час вантажить усі архіви listing
+
+- **WHEN** увімкнено «весь час», і listing архіву містить теку з `archivedAt` рік тому і теку з `archivedAt` сьогодні
+- **THEN** `loadChange` викликається для обох архівів
+- **AND** обидва стають рядками
+
+### Requirement: Заборона since/until на listing комітів
+
+Система MUST NOT передавати `since` або `until` у listing комітів за шляхом (`listCommitsByPath` або еквівалент провайдера). Для кожної завантаженої зміни інтервали `spans` SHALL і далі будуватися з повного набору комітів відповідних шляхів (як вимога «Деривація інтервалів з комітів файлів»). Вікно періоду MUST NOT обрізати коміти вже завантаженої зміни і MUST NOT перераховувати `spans` / `spend` / `journal` під `from`/`to`.
+
+#### Scenario: Виклик комітів лише зі шляхом
+
+- **WHEN** система завантажує активну зміну і читає коміти `proposal.md` / `review.md` / `tasks.md`
+- **THEN** кожен виклик listing комітів має аргументи проєкт і шлях
+- **AND** жоден виклик MUST NOT містити `since` або `until`
+
+#### Scenario: Span завантаженої зміни повний
+
+- **WHEN** архівна зміна потрапила у вікно і має коміт `tasks.md` датований роком раніше за `from`
+- **THEN** цей коміт входить у `spans.apply` / `spans.change`
+- **AND** `durationMs` MUST NOT бути обрізаний до меж вікна
+
+### Requirement: Контролі періоду на екрані аналізу
+
+Екран `/analysis/:projectId` SHALL показувати в `.board-filters` два нативні `<input type="date">` (від / до) і видимий контроль з текстом «весь час». Система MUST NOT додавати VueDatePicker, Quasar date-picker або нову npm-бібліотеку календаря. У режимі «весь час» обидва date-input SHALL бути неактивні (`disabled`). Пошук і вибір усі/активні/архів SHALL лишитися в `.board-filters` і MUST NOT бути замінені цими контролями.
+
+#### Scenario: Native date inputs на списку
+
+- **WHEN** оператор відкриває `/analysis/:projectId` і проєкт є в реєстрі
+- **THEN** у блоці `.board-filters` є два `input[type="date"]` і контроль з видимим текстом `весь час`
+- **AND** у бандлі сторінки немає імпорту VueDatePicker і немає нової date-picker залежності
+
+#### Scenario: Весь час вимикає дати
+
+- **WHEN** оператор вмикає «весь час»
+- **THEN** обидва `input[type="date"]` мають `disabled`
+- **WHEN** оператор вимикає «весь час»
+- **THEN** date-input знову активні і показують валідне вікно (`from <= to`)
+
+### Requirement: Перезавантаження аналізу при зміні періоду
+
+Зміна валідного `from`/`to` або перехід між «весь час» і календарним вікном SHALL запускати повторний HTTP `loadAnalysis` поточного проєкту маршруту. Зміна рядка пошуку або вибору `усі` / `активні` / `архів` MUST NOT викликати HTTP. Повернення з `/analysis/:projectId/metrics/:changeRef` на `/analysis/:projectId` MUST NOT викликати повний `loadAnalysis`, якщо в Pinia вже є щонайменше один рядок цього `projectId` і ключ періоду (from/to або «весь час») збігається з поточним. Якщо ключ періоду не збігається або рядків цього проєкту немає — система SHALL завантажити аналіз.
+
+#### Scenario: Зміна дат запускає HTTP
+
+- **WHEN** аналіз уже завантажено для вікна A, і оператор ставить валідне інше вікно B
+- **THEN** виконується новий HTTP `loadAnalysis`
+- **AND** рядки відповідають правилу skip вікна B
+
+#### Scenario: Пошук і фільтр архіву без HTTP
+
+- **WHEN** аналіз уже завантажено, і оператор змінює рядок пошуку або обирає «архів»
+- **THEN** видимі картки змінюються клієнтськи
+- **AND** система MUST NOT повторно викликати listing змін / архіву / `loadChange` лише через цю дію
+
+#### Scenario: Back з деталей без refetch того самого періоду
+
+- **WHEN** у Pinia є рядки проєкту P для поточного періоду, і оператор переходить зі сторінки деталей назад на `/analysis/P`
+- **THEN** система MUST NOT викликати повний `loadAnalysis`
+- **AND** картки P лишаються видимими
+
+#### Scenario: Deep-link деталей без рядків вантажить поточний період
+
+- **WHEN** оператор відкриває `/analysis/:projectId/metrics/:changeRef` при порожньому сторі
+- **THEN** система завантажує аналіз з поточним періодом стора (за замовчуванням 7 днів Києва)
+- **AND** якщо зміна не входить у завантажені рядки цього періоду, екран показує чинний кінцевий стан «Зміну не знайдено.»
