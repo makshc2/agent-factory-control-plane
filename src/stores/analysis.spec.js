@@ -71,6 +71,7 @@ describe('useAnalysisStore', () => {
     const client = createClient()
     getProviderClient.mockReturnValue(client)
     const store = useAnalysisStore()
+    store.setPeriodAllTime()
 
     await store.loadAnalysis([project])
 
@@ -111,6 +112,7 @@ describe('useAnalysisStore', () => {
       return failClient
     })
     const store = useAnalysisStore()
+    store.setPeriodAllTime()
 
     await store.loadAnalysis([okProject, failProject])
 
@@ -321,5 +323,163 @@ describe('useAnalysisStore', () => {
 
     resolveList(['add-login'])
     await pending
+  })
+
+  it('skips archived changes outside the selected window', async () => {
+    const client = createClient({
+      listArchivedChanges: vi.fn().mockResolvedValue([
+        {
+          folder: '2026-08-28-add-factory-board',
+          changeName: 'add-factory-board',
+          archivedAt: '2026-08-28',
+        },
+        {
+          folder: '2026-01-01-old-change',
+          changeName: 'old-change',
+          archivedAt: '2026-01-01',
+        },
+      ]),
+    })
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+    store.setPeriodRange('2026-08-27', '2026-09-02')
+
+    await store.loadAnalysis([project])
+
+    expect(store.rows.map((row) => row.changeName)).toEqual([
+      'add-login',
+      'add-factory-board',
+    ])
+    expect(store.rows.map((row) => row.changeName)).not.toContain('old-change')
+    expect(client.listFolderEntries).not.toHaveBeenCalledWith(
+      project,
+      'openspec/changes/archive/2026-01-01-old-change',
+    )
+    expect(
+      client.fetchArchivedArtifact.mock.calls.some(
+        (call) => call[1] === '2026-01-01-old-change',
+      ),
+    ).toBe(false)
+    expect(client.listFolderEntries).toHaveBeenCalledWith(
+      project,
+      'openspec/changes/archive/2026-08-28-add-factory-board',
+    )
+  })
+
+  it('loads every archive after setPeriodAllTime', async () => {
+    const client = createClient({
+      listArchivedChanges: vi.fn().mockResolvedValue([
+        {
+          folder: '2026-08-28-add-factory-board',
+          changeName: 'add-factory-board',
+          archivedAt: '2026-08-28',
+        },
+        {
+          folder: '2026-01-01-old-change',
+          changeName: 'old-change',
+          archivedAt: '2026-01-01',
+        },
+      ]),
+    })
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+    store.setPeriodAllTime()
+
+    await store.loadAnalysis([project])
+
+    expect(store.rows.map((row) => row.changeName)).toEqual([
+      'add-login',
+      'add-factory-board',
+      'old-change',
+    ])
+  })
+
+  it('loads an archive without archivedAt inside the window', async () => {
+    const client = createClient({
+      listArchivedChanges: vi.fn().mockResolvedValue([
+        {
+          folder: 'hotfix',
+          changeName: 'hotfix',
+          archivedAt: null,
+        },
+      ]),
+    })
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+    store.setPeriodRange('2026-08-27', '2026-09-02')
+
+    await store.loadAnalysis([project])
+
+    expect(store.rows.map((row) => row.changeName)).toContain('hotfix')
+  })
+
+  it('does not clear rows while reloading the same project and period', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+    store.setPeriodRange('2026-08-27', '2026-09-02')
+
+    await store.loadAnalysis([project])
+
+    expect(store.rows.length).toBeGreaterThanOrEqual(1)
+
+    let resolveList
+    const deferred = new Promise((resolve) => {
+      resolveList = resolve
+    })
+    client.listChanges.mockImplementation(() => deferred)
+
+    const pending = store.loadAnalysis([project])
+
+    expect(store.loading).toBe(true)
+    expect(store.rows.length).toBeGreaterThanOrEqual(1)
+
+    resolveList(['add-login'])
+    await pending
+  })
+
+  it('clears rows when loadAnalysis starts after the period changes', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+    store.setPeriodRange('2026-08-27', '2026-09-02')
+
+    await store.loadAnalysis([project])
+
+    expect(store.rows.length).toBeGreaterThanOrEqual(1)
+
+    store.setPeriodRange('2026-01-01', '2026-01-31')
+    let resolveList
+    const deferred = new Promise((resolve) => {
+      resolveList = resolve
+    })
+    client.listChanges.mockImplementation(() => deferred)
+
+    const pending = store.loadAnalysis([project])
+
+    expect(store.rows.length).toBe(0)
+
+    resolveList(['add-login'])
+    await pending
+  })
+
+  it('calls listCommitsByPath with exactly two arguments and no since/until', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    const store = useAnalysisStore()
+    store.setPeriodAllTime()
+
+    await store.loadAnalysis([project])
+
+    expect(client.listCommitsByPath.mock.calls.length).toBeGreaterThan(0)
+    for (const call of client.listCommitsByPath.mock.calls) {
+      expect(call.length).toBe(2)
+      for (const arg of call) {
+        if (arg != null && typeof arg === 'object') {
+          expect('since' in arg).toBe(false)
+          expect('until' in arg).toBe(false)
+        }
+      }
+    }
   })
 })

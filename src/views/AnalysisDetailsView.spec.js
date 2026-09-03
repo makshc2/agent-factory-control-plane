@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { getProviderClient } from '@/api/providers'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useRegistryStore } from '@/stores/registry'
+import { periodKey } from '@/utils/analysisPeriod'
 import { analysisChangeRef } from '@/utils/changeMetrics'
 import AnalysisDetailsView from './AnalysisDetailsView.vue'
 import AnalysisView from './AnalysisView.vue'
@@ -183,7 +184,14 @@ describe('AnalysisDetailsView', () => {
     useRegistryStore().addProject(projectData)
     const project = useRegistryStore().projects[0]
     const seededRow = seedActiveRow(project.id, 'add-login')
-    useAnalysisStore().rows.push(seededRow)
+    const analysisStore = useAnalysisStore()
+    analysisStore.setPeriodAllTime()
+    analysisStore.rows.push(seededRow)
+    analysisStore.loadedPeriodKey = periodKey({
+      mode: analysisStore.periodMode,
+      from: analysisStore.periodFrom,
+      to: analysisStore.periodTo,
+    })
     await mountDetails(project.id, analysisChangeRef(seededRow))
     await nextTick()
 
@@ -193,5 +201,27 @@ describe('AnalysisDetailsView', () => {
     expect(client.listChanges).not.toHaveBeenCalled()
 
     resolveList(['add-login'])
+  })
+
+  it('shows not found when the change is outside the selected period', async () => {
+    const client = createClient({
+      listChanges: vi.fn().mockResolvedValue([]),
+      listArchivedChanges: vi.fn().mockResolvedValue([
+        {
+          folder: '2026-01-01-old-change',
+          changeName: 'old-change',
+          archivedAt: '2026-01-01',
+        },
+      ]),
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    const project = useRegistryStore().projects[0]
+    useAnalysisStore().setPeriodRange('2026-08-27', '2026-09-02')
+    await mountDetails(project.id, 'a:2026-01-01-old-change')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Зміну не знайдено.')
+    expect(wrapper.find('.analysis-details').exists()).toBe(false)
   })
 })

@@ -40,8 +40,7 @@ async function ensureLoaded() {
   if (!project.value) {
     return
   }
-  const alreadyHasProjectRows = analysisStore.rows.some((item) => item.projectId === project.value.id)
-  if (alreadyHasProjectRows) {
+  if (analysisStore.hasFreshAnalysis(project.value.id)) {
     return
   }
   await analysisStore.loadAnalysis([project.value])

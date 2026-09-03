@@ -6,6 +6,11 @@ import { useAnalysisStore } from '@/stores/analysis'
 import { useRegistryStore } from '@/stores/registry'
 import { useToastsStore } from '@/stores/toasts'
 import {
+  defaultAnalysisWindow,
+  isValidAnalysisWindow,
+  periodKey,
+} from '@/utils/analysisPeriod'
+import {
   analysisChangeRef,
   metricsToCsv,
   preferDuration,
@@ -33,8 +38,21 @@ const showOverlay = computed(
   () =>
     analysisStore.loading &&
     project.value != null &&
-    !analysisStore.rows.some((row) => row.projectId === project.value.id),
+    !analysisStore.hasFreshAnalysis(project.value.id),
 )
+
+const periodError = computed(() => {
+  if (analysisStore.periodMode !== 'range') {
+    return ''
+  }
+  if (isValidAnalysisWindow(analysisStore.periodFrom, analysisStore.periodTo)) {
+    return ''
+  }
+  if (!analysisStore.periodFrom || !analysisStore.periodTo) {
+    return 'Вкажіть дати «від» і «до».'
+  }
+  return 'Дата «від» не може бути пізнішою за «до».'
+})
 
 const filteredRows = computed(() => {
   const query = String(searchQuery.value).trim().toLowerCase()
@@ -70,17 +88,53 @@ function changesCountLabel(count) {
   return `${n} змін`
 }
 
+function togglePeriodAllTime() {
+  if (analysisStore.periodMode !== 'all') {
+    analysisStore.setPeriodAllTime()
+    return
+  }
+  if (isValidAnalysisWindow(analysisStore.periodFrom, analysisStore.periodTo)) {
+    analysisStore.setPeriodRange(analysisStore.periodFrom, analysisStore.periodTo)
+    return
+  }
+  const fallback = defaultAnalysisWindow()
+  analysisStore.setPeriodRange(fallback.from, fallback.to)
+}
+
+let inFlightPeriodKey = null
+
 async function loadAnalysis() {
   if (!project.value) {
     return
   }
-  await analysisStore.loadAnalysis([project.value])
-  const projectError = analysisStore.error[project.value.id]
-  if (projectError) {
-    toasts.error(projectError.message)
+  if (
+    analysisStore.periodMode === 'range' &&
+    !isValidAnalysisWindow(analysisStore.periodFrom, analysisStore.periodTo)
+  ) {
     return
   }
-  toasts.success(`Аналіз оновлено: ${changesCountLabel(analysisStore.rows.length)}`)
+  const key = periodKey({
+    mode: analysisStore.periodMode,
+    from: analysisStore.periodFrom,
+    to: analysisStore.periodTo,
+  })
+  if (inFlightPeriodKey === key) {
+    return
+  }
+  inFlightPeriodKey = key
+  try {
+    await analysisStore.loadAnalysis([project.value])
+    const projectError = analysisStore.error[project.value.id]
+    if (projectError) {
+      toasts.error(projectError.message)
+      return
+    }
+    toasts.success(`Аналіз оновлено: ${changesCountLabel(analysisStore.rows.length)}`)
+  } finally {
+    if (inFlightPeriodKey === key) {
+      inFlightPeriodKey = null
+    }
+  }
 }
 
 function exportCsv() {
@@ -197,9 +251,40 @@ function openDetails(row) {
 watch(
   () => [route.params.projectId, project.value?.id],
   () => {
+    if (!project.value) {
+      return
+    }
+    if (analysisStore.hasFreshAnalysis(project.value.id)) {
+      return
+    }
     loadAnalysis()
   },
   { immediate: true },
+)
+
+watch(
+  [
+    () => analysisStore.periodMode,
+    () => analysisStore.periodFrom,
+    () => analysisStore.periodTo,
+  ],
+  () => {
+    if (
+      analysisStore.periodMode === 'range' &&
+      !isValidAnalysisWindow(analysisStore.periodFrom, analysisStore.periodTo)
+    ) {
+      return
+    }
+    const key = periodKey({
+      mode: analysisStore.periodMode,
+      from: analysisStore.periodFrom,
+      to: analysisStore.periodTo,
+    })
+    if (analysisStore.loadedPeriodKey === key) {
+      return
+    }
+    loadAnalysis()
+  },
 )
 </script>
 
@@ -257,7 +342,35 @@ watch(
           архів
         </option>
       </select>
+      <label>
+        Від
+        <input
+          v-model="analysisStore.periodFrom"
+          type="date"
+          :disabled="analysisStore.periodMode === 'all'"
+        >
+      </label>
+      <label>
+        До
+        <input
+          v-model="analysisStore.periodTo"
+          type="date"
+          :disabled="analysisStore.periodMode === 'all'"
+        >
+      </label>
+      <button
+        type="button"
+        @click="togglePeriodAllTime"
+      >
+        весь час
+      </button>
     </div>
+    <p
+      v-if="periodError"
+      class="analysis-period-error"
+    >
+      {{ periodError }}
+    </p>
     <p v-if="registryStore.projects.length === 0">
       Немає зареєстрованих проєктів.
     </p>

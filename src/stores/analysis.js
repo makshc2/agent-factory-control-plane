@@ -2,6 +2,12 @@ import { reactive, ref } from 'vue'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { getProviderClient, normalizeProviderError } from '@/api/providers'
 import { buildChangeMetrics, parseArchiveFolderName } from '@/utils/changeMetrics'
+import {
+  defaultAnalysisWindow,
+  isValidAnalysisWindow,
+  periodKey,
+  shouldLoadChange,
+} from '@/utils/analysisPeriod'
 
 function uniqueBySha(commits) {
   const seen = new Set()
@@ -23,6 +29,14 @@ function uniqueBySha(commits) {
 
 function emptyEntries() {
   return { files: [], dirs: [] }
+}
+
+function currentPeriodKey(periodMode, periodFrom, periodTo) {
+  return periodKey({
+    mode: periodMode,
+    from: periodFrom,
+    to: periodTo,
+  })
 }
 
 async function loadChange(client, project, { changeName, archived, archiveFolder, archivedAt, fetchFn }) {
@@ -79,7 +93,7 @@ async function loadChange(client, project, { changeName, archived, archiveFolder
   })
 }
 
-async function loadProject(project) {
+async function loadProject(project, period) {
   const client = getProviderClient(project.provider)
   const [changeNames, archivedItems] = await Promise.all([
     client.listChanges(project),
@@ -103,6 +117,17 @@ async function loadProject(project) {
   for (const item of archivedItems) {
     const folder = item.folder
     const parsed = parseArchiveFolderName(folder)
+    if (
+      !shouldLoadChange({
+        archived: true,
+        archivedAt: parsed.archivedAt,
+        mode: period.mode,
+        from: period.from,
+        to: period.to,
+      })
+    ) {
+      continue
+    }
     archiveRows.push(
       await loadChange(client, project, {
         changeName: parsed.changeName,
@@ -118,14 +143,35 @@ async function loadProject(project) {
 }
 
 export const useAnalysisStore = defineStore('analysis', () => {
+  const initialWindow = defaultAnalysisWindow()
   const rows = ref([])
   const loading = ref(false)
   const error = reactive({})
   const lastLoadedAt = ref(null)
+  const periodMode = ref('range')
+  const periodFrom = ref(initialWindow.from)
+  const periodTo = ref(initialWindow.to)
+  const loadedPeriodKey = ref(null)
+
+  function setPeriodRange(from, to) {
+    periodMode.value = 'range'
+    periodFrom.value = from
+    periodTo.value = to
+  }
+
+  function setPeriodAllTime() {
+    periodMode.value = 'all'
+  }
+
+  function hasFreshAnalysis(projectId) {
+    return (
+      rows.value.some((row) => row.projectId === projectId) &&
+      loadedPeriodKey.value === currentPeriodKey(periodMode.value, periodFrom.value, periodTo.value)
+    )
+  }
 
   async function loadAnalysis(projects) {
-    const keep =
-      projects.length === 1 && rows.value.some((row) => row.projectId === projects[0].id)
+    const keep = projects.length === 1 && hasFreshAnalysis(projects[0].id)
     loading.value = true
     if (!keep) {
       rows.value = []
@@ -136,7 +182,11 @@ export const useAnalysisStore = defineStore('analysis', () => {
       for (const project of projects) {
         const id = project.id
         try {
-          const part = await loadProject(project)
+          const part = await loadProject(project, {
+            mode: periodMode.value,
+            from: periodFrom.value,
+            to: periodTo.value,
+          })
           collected.push(...part)
           delete error[id]
           hadSuccess = true
@@ -147,8 +197,15 @@ export const useAnalysisStore = defineStore('analysis', () => {
           error[id] = normalizeProviderError(reason)
         }
       }
-      if (!keep || hadSuccess) {
+      if (!(keep && !hadSuccess)) {
         rows.value = collected
+        if (hadSuccess) {
+          loadedPeriodKey.value = currentPeriodKey(
+            periodMode.value,
+            periodFrom.value,
+            periodTo.value,
+          )
+        }
       }
       lastLoadedAt.value = Date.now()
     } finally {
@@ -156,7 +213,21 @@ export const useAnalysisStore = defineStore('analysis', () => {
     }
   }
 
-  return { rows, loading, error, lastLoadedAt, loadAnalysis }
+  return {
+    rows,
+    loading,
+    error,
+    lastLoadedAt,
+    periodMode,
+    periodFrom,
+    periodTo,
+    loadedPeriodKey,
+    setPeriodRange,
+    setPeriodAllTime,
+    hasFreshAnalysis,
+    isValidAnalysisWindow,
+    loadAnalysis,
+  }
 })
 
 if (import.meta.hot) {

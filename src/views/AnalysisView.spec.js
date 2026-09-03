@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { getProviderClient } from '@/api/providers'
+import { useAnalysisStore } from '@/stores/analysis'
 import { useRegistryStore } from '@/stores/registry'
 import { useToastsStore } from '@/stores/toasts'
 import AnalysisView from './AnalysisView.vue'
@@ -13,6 +14,16 @@ vi.mock('@/api/providers', async (importOriginal) => {
   return {
     ...actual,
     getProviderClient: vi.fn(),
+  }
+})
+
+vi.mock('@/utils/analysisPeriod', async (importOriginal) => {
+  const actual = await importOriginal()
+  const pinned = new Date('2026-09-02T12:00:00+03:00')
+  return {
+    ...actual,
+    kyivToday: vi.fn((now = pinned) => actual.kyivToday(now)),
+    defaultAnalysisWindow: vi.fn((now = pinned) => actual.defaultAnalysisWindow(now)),
   }
 })
 
@@ -253,6 +264,7 @@ describe('AnalysisView', () => {
     const client = createClient()
     getProviderClient.mockReturnValue(client)
     useRegistryStore().addProject(projectData)
+    useAnalysisStore().setPeriodAllTime()
     await mountAnalysis(useRegistryStore().projects[0].id)
     await flushPromises()
 
@@ -487,5 +499,160 @@ describe('AnalysisView', () => {
 
     expect(wrapper.findAll('.analysis-change-card').length).toBeGreaterThan(0)
     expect(wrapper.find('.analysis-loading-overlay').exists()).toBe(false)
+  })
+
+  it('renders native date inputs with the default analysis window', async () => {
+    getProviderClient.mockReturnValue(createClient())
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    const inputs = wrapper.findAll('input[type="date"]')
+    expect(inputs).toHaveLength(2)
+    expect(inputs[0].element.value).toBe('2026-08-27')
+    expect(inputs[1].element.value).toBe('2026-09-02')
+  })
+
+  it('skips archives outside the selected window', async () => {
+    const client = createClient({
+      listArchivedChanges: vi.fn().mockResolvedValue([
+        {
+          folder: '2026-08-28-add-factory-board',
+          changeName: 'add-factory-board',
+          archivedAt: '2026-08-28',
+        },
+        {
+          folder: '2026-01-01-old-change',
+          changeName: 'old-change',
+          archivedAt: '2026-01-01',
+        },
+      ]),
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    useAnalysisStore().setPeriodRange('2026-08-27', '2026-09-02')
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('add-login')
+    expect(wrapper.text()).not.toContain('old-change')
+  })
+
+  it('loads skipped archives after clicking весь час', async () => {
+    const client = createClient({
+      listArchivedChanges: vi.fn().mockResolvedValue([
+        {
+          folder: '2026-08-28-add-factory-board',
+          changeName: 'add-factory-board',
+          archivedAt: '2026-08-28',
+        },
+        {
+          folder: '2026-01-01-old-change',
+          changeName: 'old-change',
+          archivedAt: '2026-01-01',
+        },
+      ]),
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    useAnalysisStore().setPeriodRange('2026-08-27', '2026-09-02')
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('old-change')
+    const archivedCalls = client.listArchivedChanges.mock.calls.length
+
+    const allTimeButton = wrapper.findAll('button').find((button) => button.text() === 'весь час')
+    await allTimeButton.trigger('click')
+    await flushPromises()
+
+    expect(client.listArchivedChanges.mock.calls.length).toBeGreaterThan(archivedCalls)
+    expect(wrapper.text()).toContain('old-change')
+  })
+
+  it('does not refetch when search or archive filter changes', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    useAnalysisStore().setPeriodAllTime()
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(client.listChanges).toHaveBeenCalledTimes(1)
+
+    await wrapper.find('input[type="search"]').setValue('login')
+    await wrapper.find('select').setValue('archived')
+    await nextTick()
+    await flushPromises()
+
+    expect(client.listChanges).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not reload when from is later than to', async () => {
+    const client = createClient()
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    useAnalysisStore().setPeriodRange('2026-08-27', '2026-09-02')
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(client.listChanges).toHaveBeenCalledTimes(1)
+
+    const dateInputs = wrapper.findAll('input[type="date"]')
+    await dateInputs[0].setValue('2026-09-10')
+    await nextTick()
+    await flushPromises()
+
+    expect(client.listChanges).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.analysis-period-error').exists()).toBe(true)
+    expect(wrapper.find('.analysis-period-error').text()).toBe(
+      'Дата «від» не може бути пізнішою за «до».',
+    )
+  })
+
+  it('exports csv without skipped archives', async () => {
+    const createObjectURL = vi.fn(() => 'blob:test')
+    const revokeObjectURL = vi.fn()
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = revokeObjectURL
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const client = createClient({
+      listArchivedChanges: vi.fn().mockResolvedValue([
+        {
+          folder: '2026-08-28-add-factory-board',
+          changeName: 'add-factory-board',
+          archivedAt: '2026-08-28',
+        },
+        {
+          folder: '2026-01-01-old-change',
+          changeName: 'old-change',
+          archivedAt: '2026-01-01',
+        },
+      ]),
+    })
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    useAnalysisStore().setPeriodRange('2026-08-27', '2026-09-02')
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    const OriginalBlob = globalThis.Blob
+    const blobParts = []
+    globalThis.Blob = class extends OriginalBlob {
+      constructor(parts = [], options) {
+        super(parts, options)
+        blobParts.push(parts)
+      }
+    }
+    const exportButton = wrapper.findAll('button').find((button) => button.text() === 'Експорт CSV')
+    try {
+      await exportButton.trigger('click')
+      const csvText = String(blobParts[0]?.[0] ?? '')
+      expect(csvText).toContain('add-factory-board')
+      expect(csvText).not.toContain('old-change')
+    } finally {
+      globalThis.Blob = OriginalBlob
+      click.mockRestore()
+    }
   })
 })
