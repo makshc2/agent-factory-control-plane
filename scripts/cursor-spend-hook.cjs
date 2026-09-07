@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Cursor hook (stop / subagentStop): appends per-turn token usage from the hook
+// Cursor hook (stop / subagentStop / afterAgentResponse): appends per-turn token usage from the hook
 // payload to .agents/spend/cursor-usage.jsonl so `agent-orchestrator-kit handoff`
 // can collect real Cursor spend offline. Silent and fail-open by design: a hook
 // must never block the agent loop, so every failure path exits 0 with no output.
 'use strict';
 
-const { existsSync, mkdirSync, appendFileSync } = require('fs');
+const { mkdirSync, appendFileSync } = require('fs');
 const { join } = require('path');
 
 function numOrNull(value) {
@@ -14,14 +14,24 @@ function numOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function loadCollect() {
+  return require('./cursor-spend-collect.cjs');
+}
+
 function resolveBaseDir(payload) {
-  const cwd = process.cwd();
-  if (existsSync(join(cwd, '.agents'))) return cwd;
-  const roots = Array.isArray(payload.workspace_roots) ? payload.workspace_roots : [];
-  for (const root of roots) {
-    if (root && existsSync(join(String(root), '.agents'))) return String(root);
-  }
-  return cwd;
+  try {
+    const collect = loadCollect();
+    if (typeof collect.resolveBaseDir === 'function') return collect.resolveBaseDir(payload);
+  } catch {}
+  return process.cwd();
+}
+
+function runLeftover(payload) {
+  try {
+    const collect = loadCollect();
+    const fn = collect.backfillLeftover || collect.main;
+    if (typeof fn === 'function') fn(payload);
+  } catch {}
 }
 
 function main(raw) {
@@ -41,7 +51,13 @@ function main(raw) {
 
   const generationId = payload.generation_id ? String(payload.generation_id) : '';
   const conversationId = payload.conversation_id ? String(payload.conversation_id) : '';
-  const id = generationId || (conversationId ? `${conversationId}:${Date.now()}` : `cursor:${Date.now()}`);
+  const cacheReadTokens = numOrNull(payload.cache_read_tokens);
+  const id = generationId || [
+    conversationId || 'none',
+    inputTokens ?? 0,
+    outputTokens ?? 0,
+    cacheReadTokens ?? 0,
+  ].join(':');
 
   const record = {
     id,
@@ -51,7 +67,7 @@ function main(raw) {
     modelId: payload.model_id ? String(payload.model_id) : null,
     inputTokens,
     outputTokens,
-    cacheReadTokens: numOrNull(payload.cache_read_tokens),
+    cacheReadTokens,
     cacheWriteTokens: numOrNull(payload.cache_write_tokens),
     at: new Date().toISOString(),
   };
@@ -59,6 +75,11 @@ function main(raw) {
   const spendDir = join(resolveBaseDir(payload), '.agents', 'spend');
   mkdirSync(spendDir, { recursive: true });
   appendFileSync(join(spendDir, 'cursor-usage.jsonl'), `${JSON.stringify(record)}\n`);
+
+  const event = payload.hook_event_name ? String(payload.hook_event_name) : '';
+  if (event === 'stop' || event === 'afterAgentResponse') {
+    runLeftover(payload);
+  }
 }
 
 let input = '';
