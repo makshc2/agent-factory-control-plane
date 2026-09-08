@@ -2,15 +2,14 @@
   "version": 2,
   "change": "display-kit-cost-estimates",
   "createdAt": "2026-08-31T11:50:40.294Z",
-  "updatedAt": "2026-09-08T13:27:13.839Z",
+  "updatedAt": "2026-09-08T14:22:29.071Z",
   "archivedAt": "2026-08-31T21:02:52.334Z",
   "spend": {
     "inputTokens": 549869,
     "outputTokens": 5539,
     "totalTokens": 555408,
     "costUsd": null,
-    "costUsdEstimated": 1.6396,
-    "costUsdTotal": 1.6396
+    "costUsdEstimated": 1.6396
   },
   "spendByPlatform": {
     "cursor": {
@@ -20,7 +19,6 @@
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": 1.6396,
-      "costUsdTotal": 1.6396,
       "source": "cursor-hook"
     },
     "claude": {
@@ -30,7 +28,6 @@
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
-      "costUsdTotal": null,
       "source": "none"
     },
     "amp": {
@@ -40,22 +37,10 @@
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
-      "costUsdTotal": null,
       "source": "none"
     }
   },
   "spendByModel": [
-    {
-      "model": "cursor-grok-4.6",
-      "platform": "cursor",
-      "inputTokens": null,
-      "outputTokens": null,
-      "totalTokens": null,
-      "costUsd": null,
-      "ampCredits": null,
-      "costUsdEstimated": null,
-      "costUsdTotal": null
-    },
     {
       "model": "cursor-grok-4.6-high-fast",
       "platform": "cursor",
@@ -64,8 +49,7 @@
       "totalTokens": 555408,
       "costUsd": null,
       "ampCredits": null,
-      "costUsdEstimated": 1.6396,
-      "costUsdTotal": 1.6396
+      "costUsdEstimated": 1.6396
     }
   ],
   "totals": {
@@ -86,7 +70,6 @@
       "totalTokens": null,
       "costUsd": null,
       "costUsdEstimated": null,
-      "costUsdTotal": null,
       "agents": [
         "Spec Reviewer"
       ],
@@ -105,7 +88,6 @@
       "totalTokens": 555408,
       "costUsd": null,
       "costUsdEstimated": 1.6396,
-      "costUsdTotal": 1.6396,
       "agents": [
         "Archiver"
       ],
@@ -137,7 +119,8 @@
       "sourceIds": [],
       "sourceTotals": {},
       "byModel": [],
-      "costUsdTotal": null
+      "costUsdTotal": null,
+      "sources": []
     },
     {
       "startedAt": "2026-08-31T21:02:52.334Z",
@@ -176,7 +159,23 @@
           "costSource": "api-estimate"
         }
       ],
-      "costUsdTotal": 1.6396
+      "costUsdTotal": 1.6396,
+      "sources": [
+        {
+          "id": "8bc21db3-234f-4e90-968e-3ea274325f0c",
+          "platform": "cursor",
+          "model": "cursor-grok-4.6-high-fast",
+          "inputTokens": 549869,
+          "outputTokens": 5539,
+          "totalTokens": 555408,
+          "costUsd": null,
+          "ampCredits": null,
+          "at": "2026-08-31T21:03:05.379Z",
+          "cacheReadTokens": 482048,
+          "costUsdEstimated": 1.6396,
+          "costSource": "api-estimate"
+        }
+      ]
     }
   ],
   "pending": null
