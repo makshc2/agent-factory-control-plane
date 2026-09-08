@@ -2,13 +2,14 @@
   "version": 1,
   "change": "consume-kit-metrics",
   "createdAt": "2026-08-29T10:17:21.742Z",
-  "updatedAt": "2026-08-29T12:54:05.431Z",
+  "updatedAt": "2026-09-08T02:37:18.916Z",
   "archivedAt": null,
   "spend": {
     "inputTokens": null,
     "outputTokens": null,
     "totalTokens": null,
-    "costUsd": null
+    "costUsd": null,
+    "costUsdEstimated": null
   },
   "totals": {
     "sessions": 2,
@@ -20,10 +21,14 @@
     "review": {
       "sessions": 1,
       "durationMs": null,
+      "startedAt": null,
+      "endedAt": "2026-08-29T10:17:21.742Z",
+      "leadTimeMs": null,
       "inputTokens": null,
       "outputTokens": null,
       "totalTokens": null,
       "costUsd": null,
+      "costUsdEstimated": null,
       "agents": [
         "Spec Reviewer — APPROVE, review.md + apply-notes.md записані"
       ],
@@ -32,10 +37,14 @@
     "apply": {
       "sessions": 1,
       "durationMs": 2288137,
+      "startedAt": "2026-08-29T10:23:09.622Z",
+      "endedAt": "2026-08-29T11:01:17.759Z",
+      "leadTimeMs": 2288137,
       "inputTokens": null,
       "outputTokens": null,
       "totalTokens": null,
       "costUsd": null,
+      "costUsdEstimated": null,
       "agents": [
         "Implementer — apply complete, 11/11 tasks, lint/test/build exit 0"
       ],
@@ -56,7 +65,9 @@
       "inputTokens": null,
       "outputTokens": null,
       "totalTokens": null,
-      "costUsd": null
+      "costUsd": null,
+      "sources": [],
+      "costUsdEstimated": null
     },
     {
       "startedAt": "2026-08-29T10:23:09.622Z",
@@ -71,11 +82,43 @@
       "inputTokens": null,
       "outputTokens": null,
       "totalTokens": null,
-      "costUsd": null
+      "costUsd": null,
+      "sources": [],
+      "costUsdEstimated": null
     }
   ],
   "pending": {
     "startedAt": "2026-08-29T12:54:05.431Z",
     "role": "Archiver"
-  }
+  },
+  "spendByPlatform": {
+    "cursor": {
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "ampCredits": null,
+      "costUsdEstimated": null,
+      "source": "none"
+    },
+    "claude": {
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "ampCredits": null,
+      "costUsdEstimated": null,
+      "source": "none"
+    },
+    "amp": {
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "ampCredits": null,
+      "costUsdEstimated": null,
+      "source": "none"
+    }
+  },
+  "spendByModel": []
 }

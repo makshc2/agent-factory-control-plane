@@ -216,6 +216,52 @@ describe('AnalysisDetailsModal', () => {
     expect(wrapper.text()).toContain('cursor-grok-4.6')
   })
 
+  it('groups details into titled sections with subtitles', async () => {
+    wrapper = mount(AnalysisDetailsModal, {
+      attachTo: document.body,
+      props: { row },
+    })
+
+    const titles = wrapper.findAll('.analysis-details-section h2').map((el) => el.text())
+    expect(titles).toEqual([
+      'Загальна інформація',
+      'Час і витрати',
+      'Агенти та процес',
+      'Фази OpenSpec (коміти)',
+      'Витрати за платформами',
+      'Моделі',
+      'Фази OpenSpec (сесії)',
+      'Сесії агентів',
+      'Джерела витрат',
+    ])
+    const sections = wrapper.findAll('.analysis-details-section')
+    expect(sections).toHaveLength(9)
+    for (const section of sections) {
+      expect(section.find('.analysis-details-subtitle').text()).not.toBe('')
+    }
+    expect(sections[0].text()).toContain('Журнал · джерело')
+    expect(sections[0].text()).not.toContain('Kit · робочий час')
+    expect(sections[1].text()).toContain('Kit · робочий час')
+    expect(sections[1].text()).toContain('Як рахується час')
+    expect(sections[1].text()).not.toContain('Ролі')
+    expect(sections[2].text()).toContain('Субагенти')
+    expect(sections[2].text()).toContain('Ролі')
+    expect(sections[2].text()).toContain('Критерії прийняття')
+    const spanTitles = sections[3]
+      .findAll('.analysis-metric-card__title')
+      .map((el) => el.text())
+    expect(spanTitles).toEqual(['Спека', 'Рев’ю', 'Apply', 'Усього'])
+    expect(sections[3].text()).toContain('Комітів')
+    expect(sections[3].text()).toContain('2 хв 24 с')
+    expect(sections[4].text()).toContain('Платформа')
+    expect(sections[5].text()).toContain('Модель')
+    expect(sections[6].text()).toContain('Фаза')
+    expect(sections[6].text()).not.toContain('Комітів')
+    expect(sections[7].findAll('.analysis-session-card')).toHaveLength(2)
+    expect(sections[8].text()).toContain('немає')
+    expect(wrapper.findAll('.analysis-metric-card--wide')).toHaveLength(3)
+  })
+
   it('shows session and phase models when spendByModel is empty and spend is null', async () => {
     wrapper = mount(AnalysisDetailsModal, {
       attachTo: document.body,
@@ -308,6 +354,12 @@ describe('AnalysisDetailsModal', () => {
     expect(text).not.toContain('файл metrics.json')
     expect(text).toContain('інтервал комітів файлів, не wall-clock сесії')
     expect(text).not.toContain('час сесій kit (metrics.json), не інтервал комітів')
+    const sections = wrapper.findAll('.analysis-details-section')
+    expect(sections).toHaveLength(9)
+    expect(sections[5].text()).toContain('немає')
+    expect(sections[6].text()).toContain('немає')
+    expect(sections[7].text()).toContain('немає')
+    expect(sections[8].text()).toContain('немає')
   })
 
   it('shows kit 0.8.0 pending client, session spend source, thread, and sources', async () => {

@@ -87,13 +87,16 @@ function displayedCostLabel(row) {
   return resolved.estimated ? `≈ ${text}` : text
 }
 
-function spanRows(label, span) {
-  return [
-    { label: `${label} · початок`, value: textOrDash(formatKyivDateTime(span?.startedAt)) },
-    { label: `${label} · кінець`, value: textOrDash(formatKyivDateTime(span?.endedAt)) },
-    { label: `${label} · тривалість`, value: textOrDash(formatDuration(span?.durationMs)) },
-    { label: `${label} · комітів`, value: String(span?.commitCount ?? 0) },
-  ]
+function spanCard(title, span) {
+  return {
+    title,
+    rows: [
+      { label: 'Початок', value: textOrDash(formatKyivDateTime(span?.startedAt)) },
+      { label: 'Кінець', value: textOrDash(formatKyivDateTime(span?.endedAt)) },
+      { label: 'Тривалість', value: textOrDash(formatDuration(span?.durationMs)) },
+      { label: 'Комітів', value: String(span?.commitCount ?? 0) },
+    ],
+  }
 }
 
 const archiveValue = computed(() => {
@@ -104,13 +107,9 @@ const archiveValue = computed(() => {
   return dated ? `так, ${dated}` : 'так'
 })
 
-const detailRows = computed(() => {
+const generalRows = computed(() => {
   const row = props.row
-  const spend = row.spend ?? {}
-  const agents = row.agents ?? {}
-  const spans = row.spans ?? {}
   const journal = row.journal
-  const kitTimes = row.kitTimes
   return [
     { label: 'Зміна', value: textOrDash(row.changeName) },
     { label: 'Архів', value: archiveValue.value },
@@ -135,24 +134,24 @@ const detailRows = computed(() => {
           { label: 'Журнал · pending клієнт', value: textOrDash(journal.pending.clientSource) },
         ]
       : []),
+  ]
+})
+
+const spendRows = computed(() => {
+  const row = props.row
+  const spend = row.spend ?? {}
+  const journal = row.journal
+  const kitTimes = row.kitTimes
+  return [
     { label: 'Усього · сесії', value: textOrDash(journal?.totals?.sessions) },
     { label: 'Усього · хмарні сесії', value: textOrDash(journal?.totals?.cloudSessions) },
     { label: 'Kit · робочий час', value: textOrDash(formatDuration(kitTimes?.workMs)) },
     { label: 'Kit · lead time', value: textOrDash(formatDuration(kitTimes?.leadMs)) },
     { label: 'Джерело витрат', value: spendSourceLabel[spend.source] ?? textOrDash(spend.source) },
-    { label: 'Субагенти', value: listLabel(agents.subagents, 'немає') },
-    { label: 'Критерії прийняття', value: yesNo(row.hasAcceptanceCriteria) },
-    { label: 'Кількість рішень', value: String(row.decisionsCount ?? 0) },
-    ...spanRows('Спека', spans.spec),
-    ...spanRows('Рев’ю', spans.review),
-    ...spanRows('Apply', spans.apply),
-    ...spanRows('Усього', spans.change),
     { label: 'Токени · вхід', value: textOrDash(spend.inputTokens) },
     { label: 'Токени · вихід', value: textOrDash(spend.outputTokens) },
     { label: 'Токени · усього', value: textOrDash(spend.totalTokens) },
     { label: 'Вартість', value: displayedCostLabel(row) },
-    { label: 'Середовище', value: textOrDash(agents.runtime) },
-    { label: 'Ролі', value: listLabel(agents.roles, DASH) },
     {
       label: 'Як рахується час',
       value:
@@ -160,6 +159,28 @@ const detailRows = computed(() => {
           ? 'час сесій kit (metrics.json), не інтервал комітів'
           : 'інтервал комітів файлів, не wall-clock сесії',
     },
+  ]
+})
+
+const agentRows = computed(() => {
+  const row = props.row
+  const agents = row.agents ?? {}
+  return [
+    { label: 'Субагенти', value: listLabel(agents.subagents, 'немає') },
+    { label: 'Середовище', value: textOrDash(agents.runtime) },
+    { label: 'Ролі', value: listLabel(agents.roles, DASH) },
+    { label: 'Критерії прийняття', value: yesNo(row.hasAcceptanceCriteria) },
+    { label: 'Кількість рішень', value: String(row.decisionsCount ?? 0) },
+  ]
+})
+
+const spanCards = computed(() => {
+  const spans = props.row.spans ?? {}
+  return [
+    spanCard('Спека', spans.spec),
+    spanCard('Рев’ю', spans.review),
+    spanCard('Apply', spans.apply),
+    spanCard('Усього', spans.change),
   ]
 })
 
@@ -271,133 +292,244 @@ const sourceRows = computed(() => {
 
 <template>
   <section class="analysis-details">
-    <div class="analysis-card-grid">
-      <article class="analysis-metric-card">
-        <div
-          v-for="item in detailRows"
-          :key="item.label"
-          class="analysis-metric-card__row"
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Загальна інформація</h2>
+        <p class="analysis-details-subtitle">
+          Що це за зміна та звідки взято журнал metrics.json.
+        </p>
+      </header>
+      <div class="analysis-card-grid">
+        <article class="analysis-metric-card analysis-metric-card--wide">
+          <div
+            v-for="item in generalRows"
+            :key="item.label"
+            class="analysis-metric-card__row"
+          >
+            <span>{{ item.label }}</span>
+            <span>{{ item.value }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Час і витрати</h2>
+        <p class="analysis-details-subtitle">
+          Скільки часу й грошей пішло на всю зміну.
+        </p>
+      </header>
+      <div class="analysis-card-grid">
+        <article class="analysis-metric-card analysis-metric-card--wide">
+          <div
+            v-for="item in spendRows"
+            :key="item.label"
+            class="analysis-metric-card__row"
+          >
+            <span>{{ item.label }}</span>
+            <span>{{ item.value }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Агенти та процес</h2>
+        <p class="analysis-details-subtitle">
+          Хто працював над зміною та чи є критерії прийняття й рішення.
+        </p>
+      </header>
+      <div class="analysis-card-grid">
+        <article class="analysis-metric-card analysis-metric-card--wide">
+          <div
+            v-for="item in agentRows"
+            :key="item.label"
+            class="analysis-metric-card__row"
+          >
+            <span>{{ item.label }}</span>
+            <span>{{ item.value }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Фази OpenSpec (коміти)</h2>
+        <p class="analysis-details-subtitle">
+          Інтервали за комітами файлів спеки, не сесії агентів.
+        </p>
+      </header>
+      <div class="analysis-card-grid">
+        <article
+          v-for="card in spanCards"
+          :key="card.title"
+          class="analysis-metric-card"
         >
-          <span>{{ item.label }}</span>
-          <span>{{ item.value }}</span>
-        </div>
-      </article>
-    </div>
-    <div class="analysis-card-grid">
-      <article
-        v-for="item in platformRows"
-        :key="item.platform"
-        class="analysis-journal-card"
+          <h3 class="analysis-metric-card__title">
+            {{ card.title }}
+          </h3>
+          <div
+            v-for="item in card.rows"
+            :key="item.label"
+            class="analysis-metric-card__row"
+          >
+            <span>{{ item.label }}</span>
+            <span>{{ item.value }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Витрати за платформами</h2>
+        <p class="analysis-details-subtitle">
+          Токени й вартість окремо по Cursor, Claude та Amp.
+        </p>
+      </header>
+      <div class="analysis-card-grid">
+        <article
+          v-for="item in platformRows"
+          :key="item.platform"
+          class="analysis-journal-card"
+        >
+          <div class="analysis-journal-card__row">
+            <span>Платформа</span>
+            <span>{{ item.platform }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вхід</span>
+            <span>{{ item.inputTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вихід</span>
+            <span>{{ item.outputTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Усього</span>
+            <span>{{ item.totalTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вартість</span>
+            <span>{{ item.costUsd }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Amp credits</span>
+            <span>{{ item.ampCredits }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Джерело</span>
+            <span>{{ item.source }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Моделі</h2>
+        <p class="analysis-details-subtitle">
+          Витрати в розрізі моделей.
+        </p>
+      </header>
+      <p v-if="modelRows.length === 0">
+        немає
+      </p>
+      <div
+        v-else
+        class="analysis-card-grid"
       >
-        <div class="analysis-journal-card__row">
-          <span>Платформа</span>
-          <span>{{ item.platform }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вхід</span>
-          <span>{{ item.inputTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вихід</span>
-          <span>{{ item.outputTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Усього</span>
-          <span>{{ item.totalTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вартість</span>
-          <span>{{ item.costUsd }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Amp credits</span>
-          <span>{{ item.ampCredits }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Джерело</span>
-          <span>{{ item.source }}</span>
-        </div>
-      </article>
-    </div>
-    <p v-if="modelRows.length === 0">
-      немає
-    </p>
-    <div
-      v-else
-      class="analysis-card-grid"
-    >
-      <article
-        v-for="(item, index) in modelRows"
-        :key="index"
-        class="analysis-journal-card"
+        <article
+          v-for="(item, index) in modelRows"
+          :key="index"
+          class="analysis-journal-card"
+        >
+          <div class="analysis-journal-card__row">
+            <span>Модель</span>
+            <span>{{ item.model }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Платформа</span>
+            <span>{{ item.platform }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вхід</span>
+            <span>{{ item.inputTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вихід</span>
+            <span>{{ item.outputTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Усього</span>
+            <span>{{ item.totalTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вартість</span>
+            <span>{{ item.costUsd }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Amp credits</span>
+            <span>{{ item.ampCredits }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Фази OpenSpec (сесії)</h2>
+        <p class="analysis-details-subtitle">
+          Сесії, тривалість, токени й вартість по фазах пайплайна від explore до archive.
+        </p>
+      </header>
+      <p v-if="phaseRows.length === 0">
+        немає
+      </p>
+      <div
+        v-else
+        class="analysis-card-grid"
       >
-        <div class="analysis-journal-card__row">
-          <span>Модель</span>
-          <span>{{ item.model }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Платформа</span>
-          <span>{{ item.platform }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вхід</span>
-          <span>{{ item.inputTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вихід</span>
-          <span>{{ item.outputTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Усього</span>
-          <span>{{ item.totalTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вартість</span>
-          <span>{{ item.costUsd }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Amp credits</span>
-          <span>{{ item.ampCredits }}</span>
-        </div>
-      </article>
-    </div>
-    <div class="analysis-card-grid">
-      <article
-        v-for="item in phaseRows"
-        :key="item.phase"
-        class="analysis-journal-card"
-      >
-        <div class="analysis-journal-card__row">
-          <span>Фаза</span>
-          <span>{{ item.phase }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Сесії</span>
-          <span>{{ item.sessions }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Тривалість</span>
-          <span>{{ item.duration }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Токени</span>
-          <span>{{ item.tokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вартість</span>
-          <span>{{ item.costUsd }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Агенти</span>
-          <span>{{ item.agents }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Моделі</span>
-          <span>{{ item.models }}</span>
-        </div>
-      </article>
-    </div>
-    <section class="analysis-sessions">
+        <article
+          v-for="item in phaseRows"
+          :key="item.phase"
+          class="analysis-journal-card"
+        >
+          <div class="analysis-journal-card__row">
+            <span>Фаза</span>
+            <span>{{ item.phase }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Сесії</span>
+            <span>{{ item.sessions }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Тривалість</span>
+            <span>{{ item.duration }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Токени</span>
+            <span>{{ item.tokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вартість</span>
+            <span>{{ item.costUsd }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Агенти</span>
+            <span>{{ item.agents }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Моделі</span>
+            <span>{{ item.models }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Сесії агентів</h2>
+        <p class="analysis-details-subtitle">
+          Кожна сесія: роль, фаза, модель, час і витрати.
+        </p>
+      </header>
       <p v-if="sessionRows.length === 0">
         немає
       </p>
@@ -431,63 +563,71 @@ const sourceRows = computed(() => {
         </article>
       </div>
     </section>
-    <p v-if="sourceRows.length === 0">
-      немає
-    </p>
-    <div
-      v-else
-      class="analysis-card-grid"
-    >
-      <article
-        v-for="(item, index) in sourceRows"
-        :key="index"
-        class="analysis-journal-card"
+    <section class="analysis-details-section">
+      <header class="analysis-details-header">
+        <h2>Джерела витрат</h2>
+        <p class="analysis-details-subtitle">
+          Звідки адаптер узяв токени й вартість усередині сесії.
+        </p>
+      </header>
+      <p v-if="sourceRows.length === 0">
+        немає
+      </p>
+      <div
+        v-else
+        class="analysis-card-grid"
       >
-        <div class="analysis-journal-card__row">
-          <span>Роль</span>
-          <span>{{ item.role }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Source id</span>
-          <span>{{ item.id }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Via</span>
-          <span>{{ item.via }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Платформа</span>
-          <span>{{ item.platform }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Модель</span>
-          <span>{{ item.model }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вхід</span>
-          <span>{{ item.inputTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вихід</span>
-          <span>{{ item.outputTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Усього</span>
-          <span>{{ item.totalTokens }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Вартість</span>
-          <span>{{ item.costUsd }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Amp credits</span>
-          <span>{{ item.ampCredits }}</span>
-        </div>
-        <div class="analysis-journal-card__row">
-          <span>Час</span>
-          <span>{{ item.at }}</span>
-        </div>
-      </article>
-    </div>
+        <article
+          v-for="(item, index) in sourceRows"
+          :key="index"
+          class="analysis-journal-card"
+        >
+          <div class="analysis-journal-card__row">
+            <span>Роль</span>
+            <span>{{ item.role }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Source id</span>
+            <span>{{ item.id }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Via</span>
+            <span>{{ item.via }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Платформа</span>
+            <span>{{ item.platform }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Модель</span>
+            <span>{{ item.model }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вхід</span>
+            <span>{{ item.inputTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вихід</span>
+            <span>{{ item.outputTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Усього</span>
+            <span>{{ item.totalTokens }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Вартість</span>
+            <span>{{ item.costUsd }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Amp credits</span>
+            <span>{{ item.ampCredits }}</span>
+          </div>
+          <div class="analysis-journal-card__row">
+            <span>Час</span>
+            <span>{{ item.at }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
   </section>
 </template>
