@@ -111,6 +111,7 @@ describe('parseMetricsFile', () => {
     totalTokens: null,
     costUsd: null,
     costUsdEstimated: null,
+    costUsdTotal: null,
     source: 'unknown',
   }
 
@@ -126,6 +127,7 @@ describe('parseMetricsFile', () => {
       totalTokens: 30,
       costUsd: 1.5,
       costUsdEstimated: null,
+      costUsdTotal: null,
       source: 'metrics-file',
     })
   })
@@ -137,6 +139,19 @@ describe('parseMetricsFile', () => {
       totalTokens: null,
       costUsd: null,
       costUsdEstimated: 0.42,
+      costUsdTotal: null,
+      source: 'metrics-file',
+    })
+  })
+
+  it('reads costUsdTotal as a metrics-file overlay field', () => {
+    expect(parseMetricsFile('{"spend":{"costUsdTotal":21.0779}}')).toEqual({
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      costUsd: null,
+      costUsdEstimated: null,
+      costUsdTotal: 21.0779,
       source: 'metrics-file',
     })
   })
@@ -157,6 +172,50 @@ describe('parseMetricsFile', () => {
 })
 
 describe('parseKitMetrics', () => {
+  it('reads phase bounds, lead time and costUsdTotal from a v2 journal', () => {
+    const result = parseKitMetrics(
+      JSON.stringify({
+        version: 2,
+        spend: { costUsd: 14.48, costUsdEstimated: null, costUsdTotal: 14.48 },
+        spendByPlatform: {
+          amp: { costUsd: 14.48, costUsdTotal: 14.48, source: 'amp-usage' },
+        },
+        spendByModel: [{ model: 'gpt-6-astra', platform: 'amp', costUsdTotal: 6.47 }],
+        phases: {
+          spec: {
+            sessions: 2,
+            durationMs: 539356,
+            startedAt: '2026-09-07T15:17:07.490Z',
+            endedAt: '2026-09-07T15:31:40.934Z',
+            leadTimeMs: 873444,
+            costUsd: 6.47,
+            costUsdTotal: 6.47,
+          },
+        },
+        sessions: [{ role: 'Architect', phase: 'spec', costUsd: 6.47, costUsdTotal: 6.47 }],
+      }),
+    )
+
+    expect(result.spend.costUsdTotal).toBe(14.48)
+    expect(result.spendByPlatform.amp.costUsdTotal).toBe(14.48)
+    expect(result.spendByPlatform.cursor.costUsdTotal).toBeNull()
+    expect(result.spendByModel[0].costUsdTotal).toBe(6.47)
+    expect(result.phases.spec.startedAt).toBe('2026-09-07T15:17:07.490Z')
+    expect(result.phases.spec.endedAt).toBe('2026-09-07T15:31:40.934Z')
+    expect(result.phases.spec.leadTimeMs).toBe(873444)
+    expect(result.phases.spec.costUsdTotal).toBe(6.47)
+    expect(result.sessions[0].costUsdTotal).toBe(6.47)
+  })
+
+  it('keeps phase bounds null when the journal has none', () => {
+    const result = parseKitMetrics(JSON.stringify(KIT_JOURNAL))
+
+    expect(result.phases.spec.startedAt).toBeNull()
+    expect(result.phases.spec.endedAt).toBeNull()
+    expect(result.phases.spec.leadTimeMs).toBeNull()
+    expect(result.spend.costUsdTotal).toBeNull()
+  })
+
   it('parses a kit v1 journal fixture', () => {
     const result = parseKitMetrics(JSON.stringify(KIT_JOURNAL))
 
@@ -273,6 +332,13 @@ describe('preferDuration', () => {
       source: 'git-commits',
     })
   })
+
+  it('reports kit-span when the span came from journal phases', () => {
+    expect(preferDuration(null, { durationMs: 873444, source: 'kit-sessions' })).toEqual({
+      durationMs: 873444,
+      source: 'kit-span',
+    })
+  })
 })
 
 describe('parseReviewLoops', () => {
@@ -300,7 +366,9 @@ describe('resolveDisplayedCost', () => {
     expect(resolveDisplayedCost({ spend: { costUsd: 1.5, totalTokens: 30 } })).toEqual({
       costUsd: 1.5,
       estimated: false,
+      billedCostUsd: 1.5,
       estimatedCostUsd: null,
+      source: 'billed',
     })
   })
 
@@ -312,7 +380,9 @@ describe('resolveDisplayedCost', () => {
     ).toEqual({
       costUsd: null,
       estimated: false,
+      billedCostUsd: null,
       estimatedCostUsd: null,
+      source: 'none',
     })
   })
 
@@ -320,7 +390,9 @@ describe('resolveDisplayedCost', () => {
     expect(resolveDisplayedCost({ spend: { costUsd: null, totalTokens: null } })).toEqual({
       costUsd: null,
       estimated: false,
+      billedCostUsd: null,
       estimatedCostUsd: null,
+      source: 'none',
     })
   })
 
@@ -332,7 +404,9 @@ describe('resolveDisplayedCost', () => {
     ).toEqual({
       costUsd: 1.5,
       estimated: false,
+      billedCostUsd: 1.5,
       estimatedCostUsd: 0.42,
+      source: 'billed',
     })
   })
 
@@ -340,8 +414,54 @@ describe('resolveDisplayedCost', () => {
     expect(resolveDisplayedCost({ spend: { costUsdEstimated: 0 } })).toEqual({
       costUsd: 0,
       estimated: true,
+      billedCostUsd: null,
       estimatedCostUsd: 0,
+      source: 'estimated',
     })
+  })
+
+  it('prefers costUsdTotal over billed and estimated parts', () => {
+    expect(
+      resolveDisplayedCost({
+        spend: { costUsd: 14.48, costUsdEstimated: 6.5979, costUsdTotal: 21.0779 },
+      }),
+    ).toEqual({
+      costUsd: 21.0779,
+      estimated: false,
+      billedCostUsd: 14.48,
+      estimatedCostUsd: 6.5979,
+      source: 'total',
+    })
+  })
+
+  it('marks costUsdTotal as estimated when nothing was billed', () => {
+    expect(
+      resolveDisplayedCost({
+        spend: { costUsd: null, costUsdEstimated: 4.6377, costUsdTotal: 4.6377 },
+      }),
+    ).toEqual({
+      costUsd: 4.6377,
+      estimated: true,
+      billedCostUsd: null,
+      estimatedCostUsd: 4.6377,
+      source: 'total',
+    })
+  })
+
+  it('walks journal costUsdTotal when the spend overlay has none', () => {
+    expect(
+      resolveDisplayedCost({
+        spend: { costUsd: null, costUsdEstimated: null, costUsdTotal: null },
+        journal: {
+          spend: { costUsd: null, costUsdEstimated: null, costUsdTotal: null },
+          spendByPlatform: {
+            cursor: { costUsd: null, costUsdEstimated: 1.43, costUsdTotal: 1.43 },
+            claude: { costUsd: null, costUsdEstimated: 5.16, costUsdTotal: 5.16 },
+            amp: { costUsd: 14.48, costUsdEstimated: null, costUsdTotal: 14.48 },
+          },
+        },
+      }).costUsd,
+    ).toBeCloseTo(21.07, 2)
   })
 })
 
@@ -465,6 +585,98 @@ describe('buildChangeMetrics', () => {
     expect(result.spans.change.commitCount).toBe(2)
     expect(result.spans.change.startedAt).toBe('2026-08-27T10:56:57.000Z')
     expect(result.spans.change.endedAt).toBe('2026-08-27T10:59:21.000Z')
+  })
+
+  it('takes phase bounds from journal phases instead of git commits', () => {
+    const result = buildChangeMetrics({
+      project,
+      changeName: 'fix-location-search-filter-cascade',
+      archived: true,
+      artifacts: {
+        metrics: JSON.stringify({
+          version: 2,
+          totals: { sessions: 8, durationMs: 2849244, leadTimeMs: 4691796, cloudSessions: 0 },
+          phases: {
+            explore: {
+              durationMs: 710196,
+              startedAt: '2026-09-07T15:03:59.069Z',
+              endedAt: '2026-09-07T15:15:49.265Z',
+              leadTimeMs: 710196,
+            },
+            spec: {
+              durationMs: 539356,
+              startedAt: '2026-09-07T15:17:07.490Z',
+              endedAt: '2026-09-07T15:31:40.934Z',
+              leadTimeMs: 873444,
+            },
+            review: {
+              durationMs: 505022,
+              startedAt: '2026-09-07T15:26:14.472Z',
+              endedAt: '2026-09-07T15:39:40.339Z',
+              leadTimeMs: 805867,
+            },
+            apply: {
+              durationMs: 1010394,
+              startedAt: '2026-09-07T15:41:28.560Z',
+              endedAt: '2026-09-07T16:01:28.873Z',
+              leadTimeMs: 1200313,
+            },
+            archive: {
+              durationMs: 84276,
+              startedAt: '2026-09-07T16:20:46.589Z',
+              endedAt: '2026-09-07T16:22:10.865Z',
+              leadTimeMs: 84276,
+            },
+          },
+          sessions: [],
+        }),
+      },
+      commits: {
+        spec: [
+          { sha: 'a', date: '2026-09-01T10:00:00Z' },
+          { sha: 'b', date: '2026-09-01T12:00:00Z' },
+        ],
+        review: [{ sha: 'c', date: '2026-09-02T10:00:00Z' }],
+      },
+    })
+
+    expect(result.spans.spec).toEqual({
+      startedAt: '2026-09-07T15:17:07.490Z',
+      endedAt: '2026-09-07T15:31:40.934Z',
+      durationMs: 873444,
+      commitCount: null,
+      source: 'kit-sessions',
+    })
+    expect(result.spans.review.source).toBe('kit-sessions')
+    expect(result.spans.review.durationMs).toBe(805867)
+    expect(result.spans.apply.startedAt).toBe('2026-09-07T15:41:28.560Z')
+    expect(result.spans.change).toEqual({
+      startedAt: '2026-09-07T15:03:59.069Z',
+      endedAt: '2026-09-07T16:22:10.865Z',
+      durationMs: 4691796,
+      commitCount: null,
+      source: 'kit-sessions',
+    })
+  })
+
+  it('falls back to git commits when journal phases carry no bounds', () => {
+    const result = buildChangeMetrics({
+      project,
+      changeName: 'add-x',
+      archived: false,
+      artifacts: { metrics: JSON.stringify(KIT_JOURNAL) },
+      commits: {
+        spec: [
+          { sha: 'a', date: '2026-08-01T10:00:00Z' },
+          { sha: 'b', date: '2026-08-01T12:00:00Z' },
+        ],
+      },
+    })
+
+    expect(result.spans.spec.source).toBe('git-commits')
+    expect(result.spans.spec.durationMs).toBe(7200000)
+    expect(result.spans.spec.commitCount).toBe(2)
+    expect(result.spans.change.source).toBe('git-commits')
   })
 
   it('reads zero cost from metrics file', () => {
@@ -781,7 +993,7 @@ describe('metricsToCsv', () => {
     const pendingRoleIndex = header.split(',').indexOf('pending_role')
 
     const kitTail =
-      ',sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids,cost_usd_estimated'
+      ',sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids,cost_usd_estimated,cost_usd_total'
     expect(header).toContain(kitTail)
     expect(header.endsWith(kitTail)).toBe(true)
     expect(cells[sessionsIndex]).toBe('7')
@@ -790,13 +1002,13 @@ describe('metricsToCsv', () => {
     expect(cells[pendingRoleIndex]).toBe('')
   })
 
-  it('appends billed and estimated cost columns', () => {
+  it('appends billed, estimated and total cost columns', () => {
     const csv = metricsToCsv([
       {
         repo: 'org/repo',
         changeName: 'add-x',
         archived: false,
-        spend: { costUsd: 1.5, costUsdEstimated: 0.42 },
+        spend: { costUsd: 1.5, costUsdEstimated: 0.42, costUsdTotal: 1.92 },
       },
     ])
     const [header, data] = csv.split('\n')
@@ -804,9 +1016,27 @@ describe('metricsToCsv', () => {
       header.split(',').map((key, index) => [key, data.split(',')[index]]),
     )
 
-    expect(header.endsWith(',cost_usd_estimated')).toBe(true)
+    expect(header.endsWith(',cost_usd_estimated,cost_usd_total')).toBe(true)
     expect(cells.cost_usd).toBe('1.5')
     expect(cells.cost_usd_estimated).toBe('0.42')
+    expect(cells.cost_usd_total).toBe('1.92')
+  })
+
+  it('leaves cost_usd_total empty when the journal has no total', () => {
+    const csv = metricsToCsv([
+      {
+        repo: 'org/repo',
+        changeName: 'add-x',
+        archived: false,
+        spend: { costUsd: 1.5, costUsdEstimated: null, costUsdTotal: null },
+      },
+    ])
+    const [header, data] = csv.split('\n')
+    const cells = Object.fromEntries(
+      header.split(',').map((key, index) => [key, data.split(',')[index]]),
+    )
+
+    expect(cells.cost_usd_total).toBe('')
   })
 })
 

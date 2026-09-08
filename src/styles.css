@@ -341,10 +341,11 @@ body {
 }
 
 .analysis-metric-card--wide {
-  display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
-  gap: 0.5rem 2rem;
+}
+
+.analysis-metric-card--wide .analysis-details-table tbody th {
+  width: 16rem;
 }
 
 .analysis-metric-card__title {
@@ -354,33 +355,28 @@ body {
   color: #0f172a;
 }
 
-.analysis-metric-card__row,
-.analysis-journal-card__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.25rem 0.75rem;
+.analysis-metric-card .analysis-details-table,
+.analysis-session-card .analysis-details-table,
+.analysis-journal-card .analysis-details-table {
+  table-layout: fixed;
 }
 
-.analysis-metric-card__row > span:first-child,
-.analysis-journal-card__row > span:first-child {
-  font-weight: 600;
-  color: #334155;
+.analysis-metric-card .analysis-details-table th,
+.analysis-metric-card .analysis-details-table td,
+.analysis-session-card .analysis-details-table th,
+.analysis-session-card .analysis-details-table td,
+.analysis-journal-card .analysis-details-table th,
+.analysis-journal-card .analysis-details-table td {
+  padding: 0.4rem 0;
 }
 
-.analysis-metric-card__row > span:last-child,
-.analysis-journal-card__row > span:last-child {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.analysis-session-card p {
-  margin: 0;
-}
-
-.analysis-session-card__wrap {
-  overflow-wrap: anywhere;
+.analysis-metric-card .analysis-details-table tr:last-child th,
+.analysis-metric-card .analysis-details-table tr:last-child td,
+.analysis-session-card .analysis-details-table tr:last-child th,
+.analysis-session-card .analysis-details-table tr:last-child td,
+.analysis-journal-card .analysis-details-table tr:last-child th,
+.analysis-journal-card .analysis-details-table tr:last-child td {
+  border-bottom: 0;
 }
 
 .board-table__col-project {

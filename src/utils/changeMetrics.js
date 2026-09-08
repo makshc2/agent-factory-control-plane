@@ -2,20 +2,29 @@ import { parseHandoff, parseReviewVerdict, parseTasksProgress } from '@/utils/op
 import { parseFlexibleIso } from '@/utils/formatDateTime'
 
 const CSV_HEADER =
-  'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids,cost_usd_estimated'
+  'project,change,archived,archived_at,verdict,tasks_done,tasks_total,review_loops,has_acceptance_criteria,decisions_count,spec_hours,review_hours,apply_hours,change_hours,spec_started,spec_ended,review_started,review_ended,apply_started,apply_ended,change_started,change_ended,input_tokens,output_tokens,total_tokens,cost_usd,spend_source,runtime,roles,subagents,sessions,cloud_sessions,work_hours,lead_hours,pending_role,models,platforms,amp_credits,pending_platform,pending_thread_id,pending_client_source,session_spend_sources,thread_ids,cost_usd_estimated,cost_usd_total'
 
-const SPEND_KEYS = ['inputTokens', 'outputTokens', 'totalTokens', 'costUsd', 'costUsdEstimated']
+const SPEND_KEYS = [
+  'inputTokens',
+  'outputTokens',
+  'totalTokens',
+  'costUsd',
+  'costUsdEstimated',
+  'costUsdTotal',
+]
 const PLATFORM_KEYS = ['cursor', 'claude', 'amp']
 const PHASE_KEYS = ['explore', 'design', 'spec', 'review', 'apply', 'archive', 'other']
 const TOTALS_KEYS = ['sessions', 'durationMs', 'leadTimeMs', 'cloudSessions']
 const PHASE_NUMBER_KEYS = [
   'sessions',
   'durationMs',
+  'leadTimeMs',
   'inputTokens',
   'outputTokens',
   'totalTokens',
   'costUsd',
   'costUsdEstimated',
+  'costUsdTotal',
 ]
 const PLATFORM_NUMBER_KEYS = [
   'inputTokens',
@@ -24,6 +33,7 @@ const PLATFORM_NUMBER_KEYS = [
   'costUsd',
   'ampCredits',
   'costUsdEstimated',
+  'costUsdTotal',
 ]
 const SESSION_STRING_KEYS = [
   'startedAt',
@@ -46,6 +56,7 @@ const SESSION_NUMBER_KEYS = [
   'costUsd',
   'ampCredits',
   'costUsdEstimated',
+  'costUsdTotal',
 ]
 const MODEL_SPEND_KEYS = [
   'inputTokens',
@@ -54,6 +65,7 @@ const MODEL_SPEND_KEYS = [
   'costUsd',
   'ampCredits',
   'costUsdEstimated',
+  'costUsdTotal',
 ]
 const SOURCE_NUMBER_KEYS = [
   'inputTokens',
@@ -62,6 +74,7 @@ const SOURCE_NUMBER_KEYS = [
   'costUsd',
   'ampCredits',
   'costUsdEstimated',
+  'costUsdTotal',
 ]
 
 function emptySpan() {
@@ -82,6 +95,7 @@ function emptyPlatformSpend() {
     costUsd: null,
     ampCredits: null,
     costUsdEstimated: null,
+    costUsdTotal: null,
     source: 'none',
   }
 }
@@ -100,6 +114,7 @@ function emptyJournal() {
       totalTokens: null,
       costUsd: null,
       costUsdEstimated: null,
+      costUsdTotal: null,
     },
     spendByPlatform: {
       cursor: emptyPlatformSpend(),
@@ -316,6 +331,7 @@ function parseSpendFields(raw) {
     totalTokens: null,
     costUsd: null,
     costUsdEstimated: null,
+    costUsdTotal: null,
   }
   if (!isPlainObject(raw)) {
     return result
@@ -408,6 +424,8 @@ function parsePhase(raw) {
     return null
   }
   const phase = {
+    startedAt: coerceIsoTimestamp(raw.startedAt),
+    endedAt: coerceIsoTimestamp(raw.endedAt),
     agents: parseStringList(raw.agents),
     models: parseStringList(raw.models),
   }
@@ -718,6 +736,58 @@ export function spanFromCommits(commits) {
   }
 }
 
+export function spanFromPhase(phase) {
+  if (!isPlainObject(phase)) {
+    return null
+  }
+  const startedAt = coerceIsoTimestamp(phase.startedAt)
+  const endedAt = coerceIsoTimestamp(phase.endedAt)
+  if (startedAt == null && endedAt == null) {
+    return null
+  }
+  return {
+    startedAt,
+    endedAt,
+    durationMs: finiteNumber(phase.leadTimeMs) ?? durationMsFrom(startedAt, endedAt),
+    commitCount: null,
+    source: 'kit-sessions',
+  }
+}
+
+export function spanFromJournal(journal) {
+  const startedDates = []
+  const endedDates = []
+  for (const key of PHASE_KEYS) {
+    const phase = journal?.phases?.[key]
+    if (typeof phase?.startedAt === 'string') {
+      startedDates.push(phase.startedAt)
+    }
+    if (typeof phase?.endedAt === 'string') {
+      endedDates.push(phase.endedAt)
+    }
+  }
+  for (const session of journal?.sessions ?? []) {
+    if (typeof session?.startedAt === 'string') {
+      startedDates.push(session.startedAt)
+    }
+    if (typeof session?.endedAt === 'string') {
+      endedDates.push(session.endedAt)
+    }
+  }
+  if (startedDates.length === 0 && endedDates.length === 0) {
+    return null
+  }
+  const startedAt = minString(startedDates)
+  const endedAt = maxString(endedDates)
+  return {
+    startedAt,
+    endedAt,
+    durationMs: finiteNumber(journal?.totals?.leadTimeMs) ?? durationMsFrom(startedAt, endedAt),
+    commitCount: null,
+    source: 'kit-sessions',
+  }
+}
+
 export function mergeSpans(spans) {
   if (!Array.isArray(spans)) {
     return emptySpan()
@@ -783,6 +853,7 @@ export function parseMetricsFile(text) {
     totalTokens: journal.spend.totalTokens,
     costUsd: journal.spend.costUsd,
     costUsdEstimated: journal.spend.costUsdEstimated,
+    costUsdTotal: journal.spend.costUsdTotal,
     source: 'unknown',
   }
   if (SPEND_KEYS.some((key) => Number.isFinite(result[key]))) {
@@ -794,6 +865,9 @@ export function parseMetricsFile(text) {
 export function preferDuration(kitMs, span) {
   if (Number.isFinite(kitMs)) {
     return { durationMs: kitMs, source: 'kit-sessions' }
+  }
+  if (span?.source === 'kit-sessions') {
+    return { durationMs: span.durationMs ?? null, source: 'kit-span' }
   }
   return { durationMs: span?.durationMs ?? null, source: 'git-commits' }
 }
@@ -874,16 +948,36 @@ export function recordedEstimatedCostUsd(row) {
   return recordedSpendField(row, 'costUsdEstimated')
 }
 
+export function recordedTotalCostUsd(row) {
+  return recordedSpendField(row, 'costUsdTotal')
+}
+
 export function resolveDisplayedCost(row) {
-  const billed = recordedCostUsd(row)
+  const billedCostUsd = recordedCostUsd(row)
   const estimatedCostUsd = recordedEstimatedCostUsd(row)
-  if (billed != null) {
-    return { costUsd: billed, estimated: false, estimatedCostUsd }
+  const totalCostUsd = recordedTotalCostUsd(row)
+  if (totalCostUsd != null) {
+    return {
+      costUsd: totalCostUsd,
+      estimated: billedCostUsd == null,
+      billedCostUsd,
+      estimatedCostUsd,
+      source: 'total',
+    }
+  }
+  if (billedCostUsd != null) {
+    return { costUsd: billedCostUsd, estimated: false, billedCostUsd, estimatedCostUsd, source: 'billed' }
   }
   if (estimatedCostUsd != null) {
-    return { costUsd: estimatedCostUsd, estimated: true, estimatedCostUsd }
+    return {
+      costUsd: estimatedCostUsd,
+      estimated: true,
+      billedCostUsd: null,
+      estimatedCostUsd,
+      source: 'estimated',
+    }
   }
-  return { costUsd: null, estimated: false, estimatedCostUsd: null }
+  return { costUsd: null, estimated: false, billedCostUsd: null, estimatedCostUsd: null, source: 'none' }
 }
 
 export function analysisChangeRef(row) {
@@ -941,17 +1035,19 @@ export function buildChangeMetrics({
   const artifactMap = artifacts ?? {}
   const commitMap = commits ?? {}
   const tasks = parseTasksProgress(artifactMap.tasks)
-  const spec = spanFromCommits(commitMap.spec)
-  const review = spanFromCommits(commitMap.review)
-  const apply = spanFromCommits(commitMap.apply)
-  const change = spanFromCommits(
-    uniqueCommits([
-      ...(commitMap.spec ?? []),
-      ...(commitMap.review ?? []),
-      ...(commitMap.apply ?? []),
-    ]),
-  )
   const journal = parseKitMetrics(artifactMap.metrics)
+  const spec = spanFromPhase(journal.phases.spec) ?? spanFromCommits(commitMap.spec)
+  const review = spanFromPhase(journal.phases.review) ?? spanFromCommits(commitMap.review)
+  const apply = spanFromPhase(journal.phases.apply) ?? spanFromCommits(commitMap.apply)
+  const change =
+    spanFromJournal(journal) ??
+    spanFromCommits(
+      uniqueCommits([
+        ...(commitMap.spec ?? []),
+        ...(commitMap.review ?? []),
+        ...(commitMap.apply ?? []),
+      ]),
+    )
   const handoffAgents = parseHandoffAgents(artifactMap.handoff)
   return {
     projectId: projectMap.id,
@@ -1042,6 +1138,7 @@ export function metricsToCsv(rows) {
         csvCell(spendSources.join('|')),
         csvCell(threadIds.join('|')),
         csvCell(spend.costUsdEstimated),
+        csvCell(spend.costUsdTotal),
       ].join(','),
     )
   }

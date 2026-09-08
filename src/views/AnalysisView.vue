@@ -171,6 +171,9 @@ function durationLabel(durationMs) {
 function spanTitle(span) {
   const started = formatKyivDateTime(span?.startedAt) ?? DASH
   const ended = formatKyivDateTime(span?.endedAt) ?? DASH
+  if (span?.source === 'kit-sessions') {
+    return `${started} – ${ended}, межі фази за сесіями kit (metrics.json), не коміти`
+  }
   return `${started} – ${ended}, комітів: ${span?.commitCount ?? 0}, інтервал комітів файлів, не wall-clock сесії`
 }
 
@@ -220,6 +223,16 @@ function costTitle(row) {
   const resolved = resolveDisplayedCost(row)
   if (resolved.costUsd == null) {
     return ''
+  }
+  if (resolved.source === 'total') {
+    const parts = []
+    if (Number.isFinite(resolved.billedCostUsd)) {
+      parts.push(`$${resolved.billedCostUsd.toFixed(2)} billed`)
+    }
+    if (Number.isFinite(resolved.estimatedCostUsd)) {
+      parts.push(`≈ $${resolved.estimatedCostUsd.toFixed(2)} kit`)
+    }
+    return `разом (costUsdTotal)${parts.length > 0 ? `: ${parts.join(' + ')}` : ''}`
   }
   if (resolved.estimated) {
     return 'оцінка kit (costUsdEstimated), не рахунок Cursor / Amp / Claude'

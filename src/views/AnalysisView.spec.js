@@ -472,6 +472,70 @@ describe('AnalysisView', () => {
     expect(columnTitle(wrapper, 'Вартість')).toContain('≈ $0.42 kit')
   })
 
+  it('shows costUsdTotal as the headline cost with billed and kit parts in the tooltip', async () => {
+    getProviderClient.mockReturnValue(
+      createJournalClient({
+        spend: {
+          costUsd: 14.48,
+          costUsdEstimated: 6.5979,
+          costUsdTotal: 21.0779,
+        },
+      }),
+    )
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(columnText(wrapper, 'Вартість')).toBe('$21.08')
+    expect(columnTitle(wrapper, 'Вартість')).toContain('costUsdTotal')
+    expect(columnTitle(wrapper, 'Вартість')).toContain('$14.48 billed')
+    expect(columnTitle(wrapper, 'Вартість')).toContain('≈ $6.60 kit')
+  })
+
+  it('marks an estimate-only costUsdTotal with ≈', async () => {
+    getProviderClient.mockReturnValue(
+      createJournalClient({
+        spend: {
+          costUsd: null,
+          costUsdEstimated: 4.6377,
+          costUsdTotal: 4.6377,
+        },
+      }),
+    )
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(columnText(wrapper, 'Вартість')).toBe('≈ $4.64')
+    expect(columnTitle(wrapper, 'Вартість')).toContain('costUsdTotal')
+  })
+
+  it('shows kit phase bounds in the duration tooltip instead of git commits', async () => {
+    const client = createJournalClient({
+      phases: {
+        spec: {
+          sessions: 2,
+          durationMs: null,
+          startedAt: '2026-09-07T15:17:07.490Z',
+          endedAt: '2026-09-07T15:31:40.934Z',
+          leadTimeMs: 873444,
+        },
+      },
+    })
+    client.listCommitsByPath = vi.fn().mockResolvedValue([
+      { sha: 'a', date: '2026-09-01T10:00:00Z' },
+      { sha: 'b', date: '2026-09-01T12:00:00Z' },
+    ])
+    getProviderClient.mockReturnValue(client)
+    useRegistryStore().addProject(projectData)
+    await mountAnalysis(useRegistryStore().projects[0].id)
+    await flushPromises()
+
+    expect(columnText(wrapper, 'Спека')).toBe('14 хв 33 с')
+    expect(columnTitle(wrapper, 'Спека')).toContain('межі фази за сесіями kit (metrics.json), не коміти')
+    expect(columnTitle(wrapper, 'Спека')).not.toContain('комітів:')
+  })
+
   it('shows a dash when tokens exist without billed or kit estimate', async () => {
     getProviderClient.mockReturnValue(
       createJournalClient({

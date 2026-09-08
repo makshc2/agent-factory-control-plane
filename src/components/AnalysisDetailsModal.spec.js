@@ -154,15 +154,18 @@ const row = {
   },
 }
 
+function tableRows(card) {
+  return card.findAll('.analysis-details-table tbody tr')
+}
+
 function firstRowLabel(card) {
-  return card.find('.analysis-journal-card__row').findAll('span')[0]?.text() ?? ''
+  return tableRows(card)[0]?.find('th').text() ?? ''
 }
 
 function labeledValue(card, label) {
-  for (const rowEl of card.findAll('.analysis-journal-card__row')) {
-    const spans = rowEl.findAll('span')
-    if (spans[0]?.text() === label) {
-      return spans[1]?.text() ?? ''
+  for (const rowEl of tableRows(card)) {
+    if (rowEl.find('th').text() === label) {
+      return rowEl.find('td').text()
     }
   }
   return ''
@@ -227,7 +230,7 @@ describe('AnalysisDetailsModal', () => {
       'Загальна інформація',
       'Час і витрати',
       'Агенти та процес',
-      'Фази OpenSpec (коміти)',
+      'Фази OpenSpec (інтервали)',
       'Витрати за платформами',
       'Моделі',
       'Фази OpenSpec (сесії)',
@@ -252,12 +255,22 @@ describe('AnalysisDetailsModal', () => {
       .map((el) => el.text())
     expect(spanTitles).toEqual(['Спека', 'Рев’ю', 'Apply', 'Усього'])
     expect(sections[3].text()).toContain('Комітів')
+    expect(sections[3].text()).toContain('коміти файлів')
+    expect(sections[3].find('.analysis-details-subtitle').text()).toBe(
+      'Інтервали за комітами файлів спеки, не сесії агентів.',
+    )
     expect(sections[3].text()).toContain('2 хв 24 с')
     expect(sections[4].text()).toContain('Платформа')
     expect(sections[5].text()).toContain('Модель')
     expect(sections[6].text()).toContain('Фаза')
     expect(sections[6].text()).not.toContain('Комітів')
     expect(sections[7].findAll('.analysis-session-card')).toHaveLength(2)
+    expect(wrapper.findAll('.analysis-metric-card .analysis-details-table')).toHaveLength(7)
+    expect(wrapper.findAll('.analysis-journal-card .analysis-details-table')).toHaveLength(7)
+    expect(wrapper.findAll('.analysis-session-card .analysis-details-table')).toHaveLength(2)
+    expect(labeledValue(sections[0].find('.analysis-metric-card'), 'Зміна')).toBe(
+      'vms-office-camera-settings',
+    )
     expect(sections[8].text()).toContain('немає')
     expect(wrapper.findAll('.analysis-metric-card--wide')).toHaveLength(3)
   })
@@ -430,6 +443,9 @@ describe('AnalysisDetailsModal', () => {
     expect(text).toContain('Via')
     expect(wrapper.find('.analysis-metric-card').exists()).toBe(true)
     expect(wrapper.find('.analysis-session-card').exists()).toBe(true)
+    const sessionCard = wrapper.find('.analysis-session-card')
+    expect(labeledValue(sessionCard, 'Thread')).toBe('T-01a0541e-a7f5-779f-9305-4b9a467c90f8')
+    expect(labeledValue(sessionCard, 'Джерело витрат')).toBe('адаптер')
     const sourceCards = journalCards(wrapper, 'Роль')
     expect(sourceCards.length).toBeGreaterThan(0)
     expect(labeledValue(sourceCards[0], 'Via')).toBe('amp-cli')
@@ -467,11 +483,135 @@ describe('AnalysisDetailsModal', () => {
 
     const card = wrapper.find('.analysis-session-card')
     expect(card.exists()).toBe(true)
-    const paragraphs = card.findAll('p')
-    expect(paragraphs).toHaveLength(4)
-    expect(paragraphs.some((p) => p.text().trim() === '—')).toBe(false)
-    expect(card.text()).toContain('Implementer')
-    expect(card.text()).toContain('apply')
+    const labels = tableRows(card).map((rowEl) => rowEl.find('th').text())
+    expect(labels).toHaveLength(12)
+    expect(labels).not.toContain('Thread')
+    expect(labels).not.toContain('Задачі')
+    expect(labeledValue(card, 'Роль')).toBe('Implementer')
+    expect(labeledValue(card, 'Фаза')).toBe('apply')
+  })
+
+  it('shows kit phase bounds, lead time and costUsdTotal from a v2 journal', async () => {
+    wrapper = mount(AnalysisDetailsModal, {
+      attachTo: document.body,
+      props: {
+        row: {
+          ...row,
+          spend: {
+            source: 'metrics-file',
+            inputTokens: 5861491,
+            outputTokens: 56057,
+            totalTokens: 5917548,
+            costUsd: 14.48,
+            costUsdEstimated: 6.5979,
+            costUsdTotal: 21.0779,
+          },
+          spans: {
+            spec: {
+              startedAt: '2026-09-07T15:17:07.490Z',
+              endedAt: '2026-09-07T15:31:40.934Z',
+              durationMs: 873444,
+              commitCount: null,
+              source: 'kit-sessions',
+            },
+            review: {
+              startedAt: '2026-09-07T15:26:14.472Z',
+              endedAt: '2026-09-07T15:39:40.339Z',
+              durationMs: 805867,
+              commitCount: null,
+              source: 'kit-sessions',
+            },
+            apply: {
+              startedAt: '2026-09-07T15:41:28.560Z',
+              endedAt: '2026-09-07T16:01:28.873Z',
+              durationMs: 1200313,
+              commitCount: null,
+              source: 'kit-sessions',
+            },
+            change: {
+              startedAt: '2026-09-07T15:03:59.069Z',
+              endedAt: '2026-09-07T16:22:10.865Z',
+              durationMs: 4691796,
+              commitCount: null,
+              source: 'kit-sessions',
+            },
+          },
+          journal: {
+            ...row.journal,
+            version: 2,
+            spendByPlatform: {
+              ...row.journal.spendByPlatform,
+              amp: {
+                inputTokens: 5861491,
+                outputTokens: 56057,
+                totalTokens: 5917548,
+                costUsd: 14.48,
+                costUsdEstimated: null,
+                costUsdTotal: 14.48,
+                ampCredits: null,
+                source: 'amp-usage',
+              },
+              cursor: {
+                inputTokens: 1213772,
+                outputTokens: 12456,
+                totalTokens: 1226228,
+                costUsd: null,
+                costUsdEstimated: 4.6377,
+                costUsdTotal: 4.6377,
+                ampCredits: null,
+                source: 'cursor-hook',
+              },
+            },
+            phases: {
+              spec: {
+                sessions: 2,
+                durationMs: 539356,
+                startedAt: '2026-09-07T15:17:07.490Z',
+                endedAt: '2026-09-07T15:31:40.934Z',
+                leadTimeMs: 873444,
+                totalTokens: 2055318,
+                costUsd: 6.47,
+                costUsdEstimated: null,
+                costUsdTotal: 6.47,
+                agents: ['Architect'],
+                models: ['gpt-6-astra'],
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const sections = wrapper.findAll('.analysis-details-section')
+    const spendCard = sections[1].find('.analysis-metric-card')
+    expect(labeledValue(spendCard, 'Вартість')).toBe('$21.08')
+    expect(labeledValue(spendCard, 'Вартість · рахунок')).toBe('$14.48')
+    expect(labeledValue(spendCard, 'Вартість · оцінка kit')).toBe('≈ $6.60')
+    expect(sections[3].find('.analysis-details-subtitle').text()).toBe(
+      'Початок і кінець фаз за сесіями kit із metrics.json.',
+    )
+    expect(sections[3].text()).not.toContain('Комітів')
+    const specCard = sections[3].findAll('.analysis-metric-card')[0]
+    expect(labeledValue(specCard, 'Початок')).toBe('07.09.2026, 18:17')
+    expect(labeledValue(specCard, 'Кінець')).toBe('07.09.2026, 18:31')
+    expect(labeledValue(specCard, 'Тривалість')).toBe('14 хв 33 с')
+    expect(labeledValue(specCard, 'Джерело')).toBe('сесії kit (metrics.json)')
+    const changeCard = sections[3].findAll('.analysis-metric-card')[3]
+    expect(labeledValue(changeCard, 'Початок')).toBe('07.09.2026, 18:03')
+    const ampCard = journalCards(wrapper, 'Платформа').find(
+      (card) => labeledValue(card, 'Платформа') === 'amp',
+    )
+    expect(labeledValue(ampCard, 'Вартість')).toBe('$14.48')
+    const cursorCard = journalCards(wrapper, 'Платформа').find(
+      (card) => labeledValue(card, 'Платформа') === 'cursor',
+    )
+    expect(labeledValue(cursorCard, 'Вартість')).toBe('≈ $4.64')
+    const phaseCard = journalCards(wrapper, 'Фаза')[0]
+    expect(labeledValue(phaseCard, 'Початок')).toBe('07.09.2026, 18:17')
+    expect(labeledValue(phaseCard, 'Кінець')).toBe('07.09.2026, 18:31')
+    expect(labeledValue(phaseCard, 'Lead time')).toBe('14 хв 33 с')
+    expect(labeledValue(phaseCard, 'Тривалість')).toBe('8 хв 59 с')
+    expect(labeledValue(phaseCard, 'Вартість')).toBe('$6.47')
   })
 
   it('shows kit overlay estimate when billed cost is missing', async () => {

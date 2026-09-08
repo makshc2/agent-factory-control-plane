@@ -68,33 +68,34 @@ function sessionModelsLabel(session) {
   return listLabel(models, DASH)
 }
 
-function costLabel(item) {
-  if (Number.isFinite(item?.costUsd)) {
-    return `$${item.costUsd.toFixed(2)}`
-  }
-  if (Number.isFinite(item?.costUsdEstimated)) {
-    return `≈ $${item.costUsdEstimated.toFixed(2)}`
-  }
-  return DASH
-}
-
-function displayedCostLabel(row) {
-  const resolved = resolveDisplayedCost(row)
-  if (resolved.costUsd == null) {
+function usdLabel(value, estimated) {
+  if (!Number.isFinite(value)) {
     return DASH
   }
-  const text = `$${resolved.costUsd.toFixed(2)}`
-  return resolved.estimated ? `≈ ${text}` : text
+  const text = `$${value.toFixed(2)}`
+  return estimated ? `≈ ${text}` : text
+}
+
+function costLabel(item) {
+  if (Number.isFinite(item?.costUsdTotal)) {
+    return usdLabel(item.costUsdTotal, !Number.isFinite(item?.costUsd))
+  }
+  if (Number.isFinite(item?.costUsd)) {
+    return usdLabel(item.costUsd, false)
+  }
+  return usdLabel(item?.costUsdEstimated, true)
 }
 
 function spanCard(title, span) {
+  const fromKit = span?.source === 'kit-sessions'
   return {
     title,
     rows: [
       { label: 'Початок', value: textOrDash(formatKyivDateTime(span?.startedAt)) },
       { label: 'Кінець', value: textOrDash(formatKyivDateTime(span?.endedAt)) },
       { label: 'Тривалість', value: textOrDash(formatDuration(span?.durationMs)) },
-      { label: 'Комітів', value: String(span?.commitCount ?? 0) },
+      ...(fromKit ? [] : [{ label: 'Комітів', value: String(span?.commitCount ?? 0) }]),
+      { label: 'Джерело', value: fromKit ? 'сесії kit (metrics.json)' : 'коміти файлів' },
     ],
   }
 }
@@ -140,6 +141,7 @@ const generalRows = computed(() => {
 const spendRows = computed(() => {
   const row = props.row
   const spend = row.spend ?? {}
+  const cost = resolveDisplayedCost(row)
   const journal = row.journal
   const kitTimes = row.kitTimes
   return [
@@ -151,7 +153,9 @@ const spendRows = computed(() => {
     { label: 'Токени · вхід', value: textOrDash(spend.inputTokens) },
     { label: 'Токени · вихід', value: textOrDash(spend.outputTokens) },
     { label: 'Токени · усього', value: textOrDash(spend.totalTokens) },
-    { label: 'Вартість', value: displayedCostLabel(row) },
+    { label: 'Вартість', value: usdLabel(cost.costUsd, cost.estimated) },
+    { label: 'Вартість · рахунок', value: usdLabel(cost.billedCostUsd, false) },
+    { label: 'Вартість · оцінка kit', value: usdLabel(cost.estimatedCostUsd, true) },
     {
       label: 'Як рахується час',
       value:
@@ -183,6 +187,10 @@ const spanCards = computed(() => {
     spanCard('Усього', spans.change),
   ]
 })
+
+const spansFromKit = computed(() =>
+  spanCards.value.some((card) => card.rows.some((item) => item.value === 'сесії kit (metrics.json)')),
+)
 
 const platformRows = computed(() => {
   const platforms = props.row.journal?.spendByPlatform ?? {}
@@ -220,6 +228,9 @@ const phaseRows = computed(() => {
     return {
       phase: key,
       sessions: textOrDash(item.sessions),
+      startedAt: textOrDash(formatKyivDateTime(item.startedAt)),
+      endedAt: textOrDash(formatKyivDateTime(item.endedAt)),
+      leadTime: textOrDash(formatDuration(item.leadTimeMs)),
       duration: textOrDash(formatDuration(item.durationMs)),
       tokens: textOrDash(item.totalTokens),
       costUsd: costLabel(item),
@@ -301,14 +312,19 @@ const sourceRows = computed(() => {
       </header>
       <div class="analysis-card-grid">
         <article class="analysis-metric-card analysis-metric-card--wide">
-          <div
-            v-for="item in generalRows"
-            :key="item.label"
-            class="analysis-metric-card__row"
-          >
-            <span>{{ item.label }}</span>
-            <span>{{ item.value }}</span>
-          </div>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr
+                v-for="item in generalRows"
+                :key="item.label"
+              >
+                <th scope="row">
+                  {{ item.label }}
+                </th>
+                <td>{{ item.value }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
@@ -321,14 +337,19 @@ const sourceRows = computed(() => {
       </header>
       <div class="analysis-card-grid">
         <article class="analysis-metric-card analysis-metric-card--wide">
-          <div
-            v-for="item in spendRows"
-            :key="item.label"
-            class="analysis-metric-card__row"
-          >
-            <span>{{ item.label }}</span>
-            <span>{{ item.value }}</span>
-          </div>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr
+                v-for="item in spendRows"
+                :key="item.label"
+              >
+                <th scope="row">
+                  {{ item.label }}
+                </th>
+                <td>{{ item.value }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
@@ -341,22 +362,31 @@ const sourceRows = computed(() => {
       </header>
       <div class="analysis-card-grid">
         <article class="analysis-metric-card analysis-metric-card--wide">
-          <div
-            v-for="item in agentRows"
-            :key="item.label"
-            class="analysis-metric-card__row"
-          >
-            <span>{{ item.label }}</span>
-            <span>{{ item.value }}</span>
-          </div>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr
+                v-for="item in agentRows"
+                :key="item.label"
+              >
+                <th scope="row">
+                  {{ item.label }}
+                </th>
+                <td>{{ item.value }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
     <section class="analysis-details-section">
       <header class="analysis-details-header">
-        <h2>Фази OpenSpec (коміти)</h2>
+        <h2>Фази OpenSpec (інтервали)</h2>
         <p class="analysis-details-subtitle">
-          Інтервали за комітами файлів спеки, не сесії агентів.
+          {{
+            spansFromKit
+              ? 'Початок і кінець фаз за сесіями kit із metrics.json.'
+              : 'Інтервали за комітами файлів спеки, не сесії агентів.'
+          }}
         </p>
       </header>
       <div class="analysis-card-grid">
@@ -368,14 +398,19 @@ const sourceRows = computed(() => {
           <h3 class="analysis-metric-card__title">
             {{ card.title }}
           </h3>
-          <div
-            v-for="item in card.rows"
-            :key="item.label"
-            class="analysis-metric-card__row"
-          >
-            <span>{{ item.label }}</span>
-            <span>{{ item.value }}</span>
-          </div>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr
+                v-for="item in card.rows"
+                :key="item.label"
+              >
+                <th scope="row">
+                  {{ item.label }}
+                </th>
+                <td>{{ item.value }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
@@ -392,34 +427,52 @@ const sourceRows = computed(() => {
           :key="item.platform"
           class="analysis-journal-card"
         >
-          <div class="analysis-journal-card__row">
-            <span>Платформа</span>
-            <span>{{ item.platform }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вхід</span>
-            <span>{{ item.inputTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вихід</span>
-            <span>{{ item.outputTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Усього</span>
-            <span>{{ item.totalTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вартість</span>
-            <span>{{ item.costUsd }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Amp credits</span>
-            <span>{{ item.ampCredits }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Джерело</span>
-            <span>{{ item.source }}</span>
-          </div>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr>
+                <th scope="row">
+                  Платформа
+                </th>
+                <td>{{ item.platform }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вхід
+                </th>
+                <td>{{ item.inputTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вихід
+                </th>
+                <td>{{ item.outputTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Усього
+                </th>
+                <td>{{ item.totalTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вартість
+                </th>
+                <td>{{ item.costUsd }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Amp credits
+                </th>
+                <td>{{ item.ampCredits }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Джерело
+                </th>
+                <td>{{ item.source }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
@@ -442,34 +495,52 @@ const sourceRows = computed(() => {
           :key="index"
           class="analysis-journal-card"
         >
-          <div class="analysis-journal-card__row">
-            <span>Модель</span>
-            <span>{{ item.model }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Платформа</span>
-            <span>{{ item.platform }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вхід</span>
-            <span>{{ item.inputTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вихід</span>
-            <span>{{ item.outputTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Усього</span>
-            <span>{{ item.totalTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вартість</span>
-            <span>{{ item.costUsd }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Amp credits</span>
-            <span>{{ item.ampCredits }}</span>
-          </div>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr>
+                <th scope="row">
+                  Модель
+                </th>
+                <td>{{ item.model }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Платформа
+                </th>
+                <td>{{ item.platform }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вхід
+                </th>
+                <td>{{ item.inputTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вихід
+                </th>
+                <td>{{ item.outputTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Усього
+                </th>
+                <td>{{ item.totalTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вартість
+                </th>
+                <td>{{ item.costUsd }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Amp credits
+                </th>
+                <td>{{ item.ampCredits }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
@@ -492,34 +563,70 @@ const sourceRows = computed(() => {
           :key="item.phase"
           class="analysis-journal-card"
         >
-          <div class="analysis-journal-card__row">
-            <span>Фаза</span>
-            <span>{{ item.phase }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Сесії</span>
-            <span>{{ item.sessions }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Тривалість</span>
-            <span>{{ item.duration }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Токени</span>
-            <span>{{ item.tokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вартість</span>
-            <span>{{ item.costUsd }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Агенти</span>
-            <span>{{ item.agents }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Моделі</span>
-            <span>{{ item.models }}</span>
-          </div>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr>
+                <th scope="row">
+                  Фаза
+                </th>
+                <td>{{ item.phase }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Сесії
+                </th>
+                <td>{{ item.sessions }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Початок
+                </th>
+                <td>{{ item.startedAt }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Кінець
+                </th>
+                <td>{{ item.endedAt }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Lead time
+                </th>
+                <td>{{ item.leadTime }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Тривалість
+                </th>
+                <td>{{ item.duration }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Токени
+                </th>
+                <td>{{ item.tokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вартість
+                </th>
+                <td>{{ item.costUsd }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Агенти
+                </th>
+                <td>{{ item.agents }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Моделі
+                </th>
+                <td>{{ item.models }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
@@ -542,24 +649,94 @@ const sourceRows = computed(() => {
           :key="index"
           class="analysis-session-card"
         >
-          <p>
-            <span class="analysis-session-card__wrap">{{ item.role }}</span>
-            {{ item.phase }}
-          </p>
-          <p>{{ item.model }} · {{ item.platform }} · {{ item.runtime }}</p>
-          <p>{{ item.startedAt }} → {{ item.endedAt }} · {{ item.duration }}</p>
-          <p>
-            {{ item.tokens }}
-            · {{ item.costUsd }}
-            · {{ item.ampCredits }}
-            · {{ item.spendSource }}
-          </p>
-          <p v-if="hasSessionExtra(item.threadId)">
-            {{ item.threadId }}
-          </p>
-          <p v-if="hasSessionExtra(item.tasks)">
-            {{ item.tasks }}
-          </p>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr>
+                <th scope="row">
+                  Роль
+                </th>
+                <td>{{ item.role }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Фаза
+                </th>
+                <td>{{ item.phase }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Модель
+                </th>
+                <td>{{ item.model }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Платформа
+                </th>
+                <td>{{ item.platform }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Середовище
+                </th>
+                <td>{{ item.runtime }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Початок
+                </th>
+                <td>{{ item.startedAt }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Кінець
+                </th>
+                <td>{{ item.endedAt }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Тривалість
+                </th>
+                <td>{{ item.duration }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Токени
+                </th>
+                <td>{{ item.tokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вартість
+                </th>
+                <td>{{ item.costUsd }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Amp credits
+                </th>
+                <td>{{ item.ampCredits }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Джерело витрат
+                </th>
+                <td>{{ item.spendSource }}</td>
+              </tr>
+              <tr v-if="hasSessionExtra(item.threadId)">
+                <th scope="row">
+                  Thread
+                </th>
+                <td>{{ item.threadId }}</td>
+              </tr>
+              <tr v-if="hasSessionExtra(item.tasks)">
+                <th scope="row">
+                  Задачі
+                </th>
+                <td>{{ item.tasks }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
@@ -582,50 +759,76 @@ const sourceRows = computed(() => {
           :key="index"
           class="analysis-journal-card"
         >
-          <div class="analysis-journal-card__row">
-            <span>Роль</span>
-            <span>{{ item.role }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Source id</span>
-            <span>{{ item.id }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Via</span>
-            <span>{{ item.via }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Платформа</span>
-            <span>{{ item.platform }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Модель</span>
-            <span>{{ item.model }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вхід</span>
-            <span>{{ item.inputTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вихід</span>
-            <span>{{ item.outputTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Усього</span>
-            <span>{{ item.totalTokens }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Вартість</span>
-            <span>{{ item.costUsd }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Amp credits</span>
-            <span>{{ item.ampCredits }}</span>
-          </div>
-          <div class="analysis-journal-card__row">
-            <span>Час</span>
-            <span>{{ item.at }}</span>
-          </div>
+          <table class="analysis-details-table">
+            <tbody>
+              <tr>
+                <th scope="row">
+                  Роль
+                </th>
+                <td>{{ item.role }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Source id
+                </th>
+                <td>{{ item.id }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Via
+                </th>
+                <td>{{ item.via }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Платформа
+                </th>
+                <td>{{ item.platform }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Модель
+                </th>
+                <td>{{ item.model }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вхід
+                </th>
+                <td>{{ item.inputTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вихід
+                </th>
+                <td>{{ item.outputTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Усього
+                </th>
+                <td>{{ item.totalTokens }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Вартість
+                </th>
+                <td>{{ item.costUsd }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Amp credits
+                </th>
+                <td>{{ item.ampCredits }}</td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  Час
+                </th>
+                <td>{{ item.at }}</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
       </div>
     </section>
