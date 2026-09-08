@@ -1,24 +1,26 @@
 {
-  "version": 1,
+  "version": 2,
   "change": "display-kit-cost-estimates",
   "createdAt": "2026-08-31T11:50:40.294Z",
-  "updatedAt": "2026-09-08T02:37:18.917Z",
+  "updatedAt": "2026-09-08T13:27:13.839Z",
   "archivedAt": "2026-08-31T21:02:52.334Z",
   "spend": {
-    "inputTokens": 3800936,
-    "outputTokens": 23763,
-    "totalTokens": 3824699,
+    "inputTokens": 549869,
+    "outputTokens": 5539,
+    "totalTokens": 555408,
     "costUsd": null,
-    "costUsdEstimated": 9.8002
+    "costUsdEstimated": 1.6396,
+    "costUsdTotal": 1.6396
   },
   "spendByPlatform": {
     "cursor": {
-      "inputTokens": 3800936,
-      "outputTokens": 23763,
-      "totalTokens": 3824699,
+      "inputTokens": 549869,
+      "outputTokens": 5539,
+      "totalTokens": 555408,
       "costUsd": null,
       "ampCredits": null,
-      "costUsdEstimated": 9.8002,
+      "costUsdEstimated": 1.6396,
+      "costUsdTotal": 1.6396,
       "source": "cursor-hook"
     },
     "claude": {
@@ -28,6 +30,7 @@
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
+      "costUsdTotal": null,
       "source": "none"
     },
     "amp": {
@@ -37,19 +40,21 @@
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
+      "costUsdTotal": null,
       "source": "none"
     }
   },
   "spendByModel": [
     {
-      "model": "cursor-grok-4.6-xhigh-fast",
+      "model": "cursor-grok-4.6",
       "platform": "cursor",
-      "inputTokens": 3251067,
-      "outputTokens": 18224,
-      "totalTokens": 3269291,
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
       "costUsd": null,
       "ampCredits": null,
-      "costUsdEstimated": 8.1606
+      "costUsdEstimated": null,
+      "costUsdTotal": null
     },
     {
       "model": "cursor-grok-4.6-high-fast",
@@ -59,7 +64,8 @@
       "totalTokens": 555408,
       "costUsd": null,
       "ampCredits": null,
-      "costUsdEstimated": 1.6396
+      "costUsdEstimated": 1.6396,
+      "costUsdTotal": 1.6396
     }
   ],
   "totals": {
@@ -80,6 +86,7 @@
       "totalTokens": null,
       "costUsd": null,
       "costUsdEstimated": null,
+      "costUsdTotal": null,
       "agents": [
         "Spec Reviewer"
       ],
@@ -93,11 +100,12 @@
       "startedAt": "2026-08-31T21:02:52.334Z",
       "endedAt": "2026-08-31T21:02:52.334Z",
       "leadTimeMs": 0,
-      "inputTokens": 3800936,
-      "outputTokens": 23763,
-      "totalTokens": 3824699,
+      "inputTokens": 549869,
+      "outputTokens": 5539,
+      "totalTokens": 555408,
       "costUsd": null,
-      "costUsdEstimated": 9.8002,
+      "costUsdEstimated": 1.6396,
+      "costUsdTotal": 1.6396,
       "agents": [
         "Archiver"
       ],
@@ -119,14 +127,17 @@
       "platform": "cursor",
       "threadId": null,
       "tasks": "9/9",
-      "sources": [],
       "inputTokens": null,
       "outputTokens": null,
       "totalTokens": null,
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
-      "spendSource": "unreported"
+      "spendSource": "unreported",
+      "sourceIds": [],
+      "sourceTotals": {},
+      "byModel": [],
+      "costUsdTotal": null
     },
     {
       "startedAt": "2026-08-31T21:02:52.334Z",
@@ -140,57 +151,32 @@
       "platform": "cursor",
       "threadId": null,
       "tasks": "9/9",
-      "sources": [
+      "inputTokens": 549869,
+      "outputTokens": 5539,
+      "totalTokens": 555408,
+      "costUsd": null,
+      "ampCredits": null,
+      "costUsdEstimated": 1.6396,
+      "spendSource": "adapter",
+      "sourceIds": [
+        "8bc21db3-234f-4e90-968e-3ea274325f0c"
+      ],
+      "sourceTotals": {
+        "8bc21db3-234f-4e90-968e-3ea274325f0c": 555408
+      },
+      "byModel": [
         {
-          "id": "2086baaa-ad41-4f6f-aaa1-4490a8312894",
-          "platform": "cursor",
-          "model": "cursor-grok-4.6-xhigh-fast",
-          "inputTokens": 2187549,
-          "outputTokens": 4660,
-          "totalTokens": 2192209,
-          "costUsd": null,
-          "ampCredits": null,
-          "at": "2026-08-31T11:50:54.122Z",
-          "cacheReadTokens": 2173824,
-          "costUsdEstimated": 4.5693,
-          "costSource": "api-estimate"
-        },
-        {
-          "id": "da2a9785-d0fd-4ae2-b46c-ec2668388406",
-          "platform": "cursor",
-          "model": "cursor-grok-4.6-xhigh-fast",
-          "inputTokens": 1063518,
-          "outputTokens": 13564,
-          "totalTokens": 1077082,
-          "costUsd": null,
-          "ampCredits": null,
-          "at": "2026-08-31T11:51:04.031Z",
-          "cacheReadTokens": 873728,
-          "costUsdEstimated": 3.5913,
-          "costSource": "api-estimate"
-        },
-        {
-          "id": "8bc21db3-234f-4e90-968e-3ea274325f0c",
-          "platform": "cursor",
           "model": "cursor-grok-4.6-high-fast",
+          "platform": "cursor",
           "inputTokens": 549869,
           "outputTokens": 5539,
           "totalTokens": 555408,
           "costUsd": null,
-          "ampCredits": null,
-          "at": "2026-08-31T21:03:05.379Z",
-          "cacheReadTokens": 482048,
           "costUsdEstimated": 1.6396,
           "costSource": "api-estimate"
         }
       ],
-      "inputTokens": 3800936,
-      "outputTokens": 23763,
-      "totalTokens": 3824699,
-      "costUsd": null,
-      "ampCredits": null,
-      "costUsdEstimated": 9.8002,
-      "spendSource": "adapter"
+      "costUsdTotal": 1.6396
     }
   ],
   "pending": null

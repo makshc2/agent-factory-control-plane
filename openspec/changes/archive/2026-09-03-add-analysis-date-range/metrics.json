@@ -1,15 +1,16 @@
 {
-  "version": 1,
+  "version": 2,
   "change": "add-analysis-date-range",
   "createdAt": "2026-09-02T20:28:44.323Z",
-  "updatedAt": "2026-09-08T02:37:18.919Z",
+  "updatedAt": "2026-09-08T13:27:13.842Z",
   "archivedAt": "2026-09-03T06:49:58.928Z",
   "spend": {
     "inputTokens": 1213772,
     "outputTokens": 12456,
     "totalTokens": 1226228,
     "costUsd": null,
-    "costUsdEstimated": 4.6377
+    "costUsdEstimated": 4.6377,
+    "costUsdTotal": 4.6377
   },
   "spendByPlatform": {
     "cursor": {
@@ -19,6 +20,7 @@
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": 4.6377,
+      "costUsdTotal": 4.6377,
       "source": "cursor-hook"
     },
     "claude": {
@@ -28,6 +30,7 @@
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
+      "costUsdTotal": null,
       "source": "none"
     },
     "amp": {
@@ -37,10 +40,22 @@
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
+      "costUsdTotal": null,
       "source": "none"
     }
   },
   "spendByModel": [
+    {
+      "model": "cursor-grok-4.6",
+      "platform": "cursor",
+      "inputTokens": null,
+      "outputTokens": null,
+      "totalTokens": null,
+      "costUsd": null,
+      "ampCredits": null,
+      "costUsdEstimated": null,
+      "costUsdTotal": null
+    },
     {
       "model": "cursor-grok-4.6-xhigh-fast",
       "platform": "cursor",
@@ -49,7 +64,8 @@
       "totalTokens": 1226228,
       "costUsd": null,
       "ampCredits": null,
-      "costUsdEstimated": 4.6377
+      "costUsdEstimated": 4.6377,
+      "costUsdTotal": 4.6377
     }
   ],
   "totals": {
@@ -70,6 +86,7 @@
       "totalTokens": null,
       "costUsd": null,
       "costUsdEstimated": null,
+      "costUsdTotal": null,
       "agents": [
         "Architect"
       ],
@@ -88,6 +105,7 @@
       "totalTokens": null,
       "costUsd": null,
       "costUsdEstimated": null,
+      "costUsdTotal": null,
       "agents": [
         "Spec Reviewer"
       ],
@@ -106,6 +124,7 @@
       "totalTokens": null,
       "costUsd": null,
       "costUsdEstimated": null,
+      "costUsdTotal": null,
       "agents": [
         "Implementer"
       ],
@@ -124,6 +143,7 @@
       "totalTokens": 1226228,
       "costUsd": null,
       "costUsdEstimated": 4.6377,
+      "costUsdTotal": 4.6377,
       "agents": [
         "Archiver"
       ],
@@ -145,14 +165,17 @@
       "platform": "cursor",
       "threadId": "bd71f129-482a-4144-977f-7c8c89f573b5",
       "tasks": "0/14",
-      "sources": [],
       "inputTokens": null,
       "outputTokens": null,
       "totalTokens": null,
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
-      "spendSource": "unreported"
+      "spendSource": "unreported",
+      "sourceIds": [],
+      "sourceTotals": {},
+      "byModel": [],
+      "costUsdTotal": null
     },
     {
       "startedAt": "2026-09-03T06:01:08.136Z",
@@ -166,14 +189,17 @@
       "platform": "cursor",
       "threadId": "9bbdad36-e96c-4407-9005-2ff4a5c36a9f",
       "tasks": "0/14",
-      "sources": [],
       "inputTokens": null,
       "outputTokens": null,
       "totalTokens": null,
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
-      "spendSource": "unreported"
+      "spendSource": "unreported",
+      "sourceIds": [],
+      "sourceTotals": {},
+      "byModel": [],
+      "costUsdTotal": null
     },
     {
       "startedAt": "2026-09-03T06:11:40.879Z",
@@ -187,14 +213,17 @@
       "platform": "cursor",
       "threadId": "f817ef26-93e4-46ca-b41d-9db02c4e0296",
       "tasks": "14/14",
-      "sources": [],
       "inputTokens": null,
       "outputTokens": null,
       "totalTokens": null,
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": null,
-      "spendSource": "unreported"
+      "spendSource": "unreported",
+      "sourceIds": [],
+      "sourceTotals": {},
+      "byModel": [],
+      "costUsdTotal": null
     },
     {
       "startedAt": "2026-09-03T06:46:55.854Z",
@@ -208,29 +237,32 @@
       "platform": "cursor",
       "threadId": "1d01edf1-cc84-427e-8d1d-1f5ded9b4809",
       "tasks": "14/14",
-      "sources": [
-        {
-          "id": "c04dd268-b5b5-47cd-9f1d-9de5ca278292",
-          "platform": "cursor",
-          "model": "cursor-grok-4.6-xhigh-fast",
-          "inputTokens": 1213772,
-          "outputTokens": 12456,
-          "totalTokens": 1226228,
-          "costUsd": null,
-          "ampCredits": null,
-          "at": "2026-09-03T06:50:24.806Z",
-          "cacheReadTokens": 895232,
-          "costUsdEstimated": 4.6377,
-          "costSource": "api-estimate"
-        }
-      ],
       "inputTokens": 1213772,
       "outputTokens": 12456,
       "totalTokens": 1226228,
       "costUsd": null,
       "ampCredits": null,
       "costUsdEstimated": 4.6377,
-      "spendSource": "adapter"
+      "spendSource": "adapter",
+      "sourceIds": [
+        "c04dd268-b5b5-47cd-9f1d-9de5ca278292"
+      ],
+      "sourceTotals": {
+        "c04dd268-b5b5-47cd-9f1d-9de5ca278292": 1226228
+      },
+      "byModel": [
+        {
+          "model": "cursor-grok-4.6-xhigh-fast",
+          "platform": "cursor",
+          "inputTokens": 1213772,
+          "outputTokens": 12456,
+          "totalTokens": 1226228,
+          "costUsd": null,
+          "costUsdEstimated": 4.6377,
+          "costSource": "api-estimate"
+        }
+      ],
+      "costUsdTotal": 4.6377
     }
   ],
   "pending": null

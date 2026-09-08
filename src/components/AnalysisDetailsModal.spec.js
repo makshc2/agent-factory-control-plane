@@ -614,6 +614,31 @@ describe('AnalysisDetailsModal', () => {
     expect(labeledValue(phaseCard, 'Вартість')).toBe('$6.47')
   })
 
+  it('shows git-span rows with commit subtitle and коміти файлів source', async () => {
+    wrapper = mount(AnalysisDetailsModal, {
+      attachTo: document.body,
+      props: {
+        row: {
+          ...row,
+          spans: {
+            spec: { ...row.spans.spec, source: 'git-commits' },
+            review: { ...row.spans.review, source: 'git-commits' },
+            apply: { ...row.spans.apply, source: 'git-commits' },
+            change: { ...row.spans.change, source: 'git-commits' },
+          },
+        },
+      },
+    })
+
+    const sections = wrapper.findAll('.analysis-details-section')
+    expect(sections[3].find('.analysis-details-subtitle').text()).toBe(
+      'Інтервали за комітами файлів спеки, не сесії агентів.',
+    )
+    const specCard = sections[3].findAll('.analysis-metric-card')[0]
+    expect(labeledValue(specCard, 'Джерело')).toBe('коміти файлів')
+    expect(labeledValue(specCard, 'Комітів')).toBe('2')
+  })
+
   it('shows kit overlay estimate when billed cost is missing', async () => {
     wrapper = mount(AnalysisDetailsModal, {
       attachTo: document.body,

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   parseArchiveFolderName,
   spanFromCommits,
+  spanFromJournal,
   parseKitMetrics,
   parseMetricsFile,
   preferDuration,
@@ -169,6 +170,13 @@ describe('parseMetricsFile', () => {
     expect(result.costUsdEstimated).toBeNull()
     expect(result.source).toBe('unknown')
   })
+
+  it('treats string costUsdTotal as unknown spend', () => {
+    const result = parseMetricsFile('{"spend":{"costUsdTotal":"21.07"}}')
+
+    expect(result.costUsdTotal).toBeNull()
+    expect(result.source).toBe('unknown')
+  })
 })
 
 describe('parseKitMetrics', () => {
@@ -214,6 +222,19 @@ describe('parseKitMetrics', () => {
     expect(result.phases.spec.endedAt).toBeNull()
     expect(result.phases.spec.leadTimeMs).toBeNull()
     expect(result.spend.costUsdTotal).toBeNull()
+    expect(result.spendByPlatform.amp.costUsdTotal).toBeNull()
+    expect(result.sessions[0].costUsdTotal).toBeNull()
+  })
+
+  it('keeps costUsdTotal null on overlay and platforms for an empty journal', () => {
+    const overlay = parseMetricsFile(null)
+    const journal = parseKitMetrics(null)
+
+    expect(overlay.costUsdTotal).toBeNull()
+    expect(journal.spend.costUsdTotal).toBeNull()
+    expect(journal.spendByPlatform.cursor.costUsdTotal).toBeNull()
+    expect(journal.spendByPlatform.claude.costUsdTotal).toBeNull()
+    expect(journal.spendByPlatform.amp.costUsdTotal).toBeNull()
   })
 
   it('parses a kit v1 journal fixture', () => {
@@ -315,6 +336,36 @@ describe('parseKitMetrics', () => {
     )
 
     expect(journal.spendByPlatform.cursor.costUsdEstimated).toBe(0.18)
+  })
+})
+
+describe('spanFromJournal', () => {
+  it('returns min and max bounds from phases and sessions', () => {
+    const result = spanFromJournal({
+      totals: { leadTimeMs: 4691796 },
+      phases: {
+        spec: {
+          startedAt: '2026-09-07T15:17:07.490Z',
+          endedAt: '2026-09-07T15:31:40.934Z',
+        },
+      },
+      sessions: [
+        { startedAt: '2026-09-07T15:03:59.069Z', endedAt: '2026-09-07T15:15:49.265Z' },
+        { startedAt: '2026-09-07T16:20:46.589Z', endedAt: '2026-09-07T16:22:10.865Z' },
+      ],
+    })
+
+    expect(result).toEqual({
+      startedAt: '2026-09-07T15:03:59.069Z',
+      endedAt: '2026-09-07T16:22:10.865Z',
+      durationMs: 4691796,
+      commitCount: null,
+      source: 'kit-sessions',
+    })
+  })
+
+  it('returns null when phases and sessions have no dates', () => {
+    expect(spanFromJournal({ phases: { spec: { durationMs: 1 } }, sessions: [] })).toBeNull()
   })
 })
 
@@ -449,19 +500,20 @@ describe('resolveDisplayedCost', () => {
   })
 
   it('walks journal costUsdTotal when the spend overlay has none', () => {
-    expect(
-      resolveDisplayedCost({
+    const resolved = resolveDisplayedCost({
+      spend: { costUsd: null, costUsdEstimated: null, costUsdTotal: null },
+      journal: {
         spend: { costUsd: null, costUsdEstimated: null, costUsdTotal: null },
-        journal: {
-          spend: { costUsd: null, costUsdEstimated: null, costUsdTotal: null },
-          spendByPlatform: {
-            cursor: { costUsd: null, costUsdEstimated: 1.43, costUsdTotal: 1.43 },
-            claude: { costUsd: null, costUsdEstimated: 5.16, costUsdTotal: 5.16 },
-            amp: { costUsd: 14.48, costUsdEstimated: null, costUsdTotal: 14.48 },
-          },
+        spendByPlatform: {
+          cursor: { costUsd: null, costUsdEstimated: 1.43, costUsdTotal: 1.43 },
+          claude: { costUsd: null, costUsdEstimated: 5.16, costUsdTotal: 5.16 },
+          amp: { costUsd: 14.48, costUsdEstimated: null, costUsdTotal: 14.48 },
         },
-      }).costUsd,
-    ).toBeCloseTo(21.07, 2)
+      },
+    })
+
+    expect(resolved.costUsd).toBeCloseTo(21.07, 2)
+    expect(resolved.source).toBe('total')
   })
 })
 
@@ -677,6 +729,26 @@ describe('buildChangeMetrics', () => {
     expect(result.spans.spec.durationMs).toBe(7200000)
     expect(result.spans.spec.commitCount).toBe(2)
     expect(result.spans.change.source).toBe('git-commits')
+  })
+
+  it('falls back to git commits when there is no journal', () => {
+    const result = buildChangeMetrics({
+      project,
+      changeName: 'add-x',
+      archived: false,
+      artifacts: {},
+      commits: {
+        spec: [
+          { sha: 'a', date: '2026-08-01T10:00:00Z' },
+          { sha: 'b', date: '2026-08-01T12:00:00Z' },
+        ],
+      },
+    })
+
+    expect(result.journal.source).toBe('unknown')
+    expect(result.spans.spec.source).toBe('git-commits')
+    expect(result.spans.spec.commitCount).toBe(2)
+    expect(result.spans.spec.durationMs).toBe(7200000)
   })
 
   it('reads zero cost from metrics file', () => {
