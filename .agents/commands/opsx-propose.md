@@ -22,7 +22,7 @@ When ready to implement, run /opsx:apply
 
 **Input**: The argument after `/opsx:propose` is the change name (kebab-case), OR a description of what the user wants to build.
 
-**Conductor delegation is mandatory:** spawn `spec-architect` with the resolved name, decision brief, design brief if present, and artifact instructions. The parent MUST NOT create or edit proposal/design/specs/tasks; after the structured report it may only verify files, run status, and run strict validation.
+**Conductor delegation is mandatory:** spawn `spec-architect` with the resolved name, decision brief, design brief if present, and artifact instructions. The parent MUST NOT create or edit proposal/design/specs/tasks; after the structured report it may only verify files, run status, run strict validation, run the Tier 1 pre-gate `npx agent-orchestrator-kit gate-check --review <name>`, and re-spawn `spec-architect` once with the gate-check errors.
 
 **Task contract (mandatory tasks.md format):** every task must carry indented `Files:`, `Do:`, `Done-when:` fields:
 
@@ -34,6 +34,14 @@ When ready to implement, run /opsx:apply
 ```
 
 Each task must be self-contained for a blind implementer — executable without reading design.md. `Files:` paths must exist unless prefixed with `new file:`. Lint: `npx agent-orchestrator-kit gate-check --tasks <name>` (mode via `pipeline.task_contract: warn|strict|off`).
+
+**Done-when quality:** Done-when checks that the new state is present, not only that the old state is gone. A quantitative `Done-when:` check (`grep -c`, "exactly N lines") must be consistent with the code or text that `Do:` of the same task prescribes. Do not hardcode volatile repo values (current version number, dates, "top entry"); describe them as the current value plus a rule evaluated at apply time.
+
+On re-propose after `review.md` Verdict REQUEST CHANGES, the conductor MUST pass `review.md` (path + verdict + Required Before Apply list) in the `spec-architect` spawn prompt and verify the report addresses every item; the parent MUST NOT itself edit proposal/design/specs/tasks. Exception: the structure-only propose trigger is the exact line
+
+**Source:** gate-check
+
+plus the absence of `## Checklist`; then fix only those gate-check errors.
 
 **Steps**
 
@@ -97,24 +105,26 @@ Each task must be self-contained for a blind implementer — executable without 
       - Use **AskUserQuestion tool** to clarify
       - Then continue with creation
 
-6. **Verify the report and show final status**
+6. **Verify the report, run the Tier 1 pre-gate, and show final status**
 
-   The conductor verifies `Status: done` and each reported artifact path, then runs:
+   The conductor verifies `Status: done`, the `**Gate:**` line (informational only: whatever it says, including `not run` or nothing, the conductor's own run below decides), and each reported artifact path, then runs:
    ```bash
    npx openspec status --change "<name>"
+   npx agent-orchestrator-kit gate-check --review <name>
    ```
+   Tier 1 pre-gate (first propose, re-propose, and structure-only re-propose alike): the conductor MUST run `gate-check --review` itself; the architect's `**Gate:**` line does not replace it, and Tier 1 already includes `openspec validate --strict`. If it exits ≠ 0, re-spawn `spec-architect` once with the full list of gate-check errors (targeted fix), then run it again. If it still exits ≠ 0, close the session with `## Blocked` listing the remaining gate-check errors and next command `/opsx:propose <name>`. Handoff to `/opsx:review` without `gate-check --review` exit 0 is forbidden.
 
 **Output**
 
 After completing all artifacts, summarize:
 - Change name and location
 - List of artifacts created with brief descriptions
-- What's ready: "All artifacts created and validated! Ready for spec review."
-- Prompt: "Run `/opsx:review <name>` in a fresh session."
+- What's ready: "All artifacts created, validated, and Tier 1 pre-gate passed! Ready for spec review."
+- Prompt: "Run `/opsx:review <name>` in a fresh session." only after `gate-check --review` exit 0. If the pre-gate still fails after the one re-spawn, report `## Blocked` with the remaining gate-check errors and next command `/opsx:propose <name>` instead of this prompt and the What's ready line.
 
 ## Session Exit (HARD STOP)
 
-Close via the canonical Session Exit protocol in `.agents/rules/session-handoff.mdc`. First line of the pasted prompt is `/opsx:review <name>`. Do not start review in this chat.
+Close via the canonical Session Exit protocol in `.agents/rules/session-handoff.mdc`. First line of the pasted prompt is `/opsx:review <name>` only after `gate-check --review` exit 0; if the pre-gate still fails after the one re-spawn, it is `/opsx:propose <name>` and `handoff.md` has `## Blocked`. Do not start review in this chat.
 
 **Artifact Creation Guidelines**
 

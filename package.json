@@ -21,7 +21,7 @@
     "@fission-ai/openspec": "^1.4.1",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/test-utils": "^2.4.6",
-    "agent-orchestrator-kit": "^0.13.0",
+    "agent-orchestrator-kit": "^0.17.0",
     "eslint": "^9.32.0",
     "eslint-plugin-vue": "^10.4.0",
     "jsdom": "^26.1.0",

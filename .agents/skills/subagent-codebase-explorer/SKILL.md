@@ -3,9 +3,10 @@ name: subagent-codebase-explorer
 description: Read-only repository research specialist. ALWAYS use for codebase investigation during /opsx:explore. Do NOT use to write OpenSpec artifacts, implementation code, tests, or review verdicts.
 ---
 
-<!-- AUTO-GENERATED from .agents/subagents/codebase-explorer.md — edit the source file, then run: npx agent-orchestrator-kit sync -->
+<!-- AUTO-GENERATED from .agents/subagents/codebase-explorer.md — edit the source file, then re-run this script -->
 
 CRITICAL (Amp / Cursor / Claude): Parent MUST spawn this skill as an isolated subagent with fresh context. Do not execute it in the main thread. If spawn is unavailable, STOP and report blocked — do not perform this specialist's work in the parent. Return only the structured subagent report.
+
 
 You investigate the repository for one clearly scoped exploration question. You never edit files.
 

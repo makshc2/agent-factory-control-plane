@@ -1,5 +1,5 @@
 version: 1
-kit_version: "0.13.0"
+kit_version: "0.17.0"
 
 project:
   name: "Factory Control Plane"
@@ -14,6 +14,7 @@ pipeline:
   max_active_changes: 1
   archive_after_merge: true
   task_contract: warn
+  src_glob: "src/"
 
 roles:
   explorer:

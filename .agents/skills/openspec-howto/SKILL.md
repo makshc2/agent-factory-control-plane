@@ -102,7 +102,7 @@ npx openspec view
 `list` → `status --change <n>` → `validate` → `show <n>`
 
 ### CLI ↔ Cursor
-- `/opsx:propose` → потім `status`, `validate`
+- `/opsx:propose` → потім `status`, `validate`, `npx agent-orchestrator-kit gate-check --review <name>` (Tier 1 pre-gate: exit 0 перед `/opsx:review`)
 - `/opsx:apply` → `list` показує оновлені tasks
 - `/opsx:archive` → `npx openspec archive <name>`
 

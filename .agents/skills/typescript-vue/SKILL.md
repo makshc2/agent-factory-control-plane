@@ -97,6 +97,8 @@ const isOpen = defineModel<boolean>('open', { default: false })
 
 Replaces the old `defineProps<{ modelValue: string }>()` + `defineEmits<{ 'update:modelValue': [string] }>()` pair with a single typed ref — use it for any new `v-model`-compatible component.
 
+See [`references/script-setup-typing.md`](references/script-setup-typing.md) for slots, expose, and attrs typing.
+
 ## 4) Generic Components
 
 ```vue
